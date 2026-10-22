@@ -2,7 +2,7 @@ import "./styles/main.css";
 import { type Kind, type Track } from "./generator";
 import { Game, STAR_THRESHOLDS } from "./game";
 import { render } from "./rendering";
-import { interpolate } from "./input";
+import { bindNodeClicks } from "./input";
 import { load, save, record, type Records } from "./storage";
 const root = document.querySelector<HTMLDivElement>("#app")!;
 const names = { oval: "Żużlowy", circuit: "Samochodowy", rally: "Rajdowy" };
@@ -13,8 +13,7 @@ let game: Game | undefined,
   code = "",
   zoom = 1,
   show = false,
-  invalid = false,
-  active: number | null = null;
+  invalid = false;
 let pan = { x: 0, y: 0 };
 const worker = new Worker(new URL("./generator/worker.ts", import.meta.url), {
   type: "module",
@@ -28,7 +27,7 @@ const escape = (s: string) =>
       ]!,
   );
 function shell(content: string) {
-  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Osiem kierunków. Jedna najkrótsza droga. &nbsp; / &nbsp; Papier · atrament · logika</footer>`;
+  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Osiem kierunków. Jedna najkrótsza droga. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
 }
 function button(id: string, fn: () => void) {
   document.getElementById(id)?.addEventListener("click", fn);
@@ -37,9 +36,8 @@ let awaiting = false,
   requestId = 0;
 function menu() {
   awaiting = false;
-  active = null;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Narysuj drogę.<br>Zaoszczędź każdą kratkę.</h2><p>Od STARTU do METY, po przecięciach siatki. Zmierz się z geometrią toru i znajdź najkrótszą legalną trasę.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Prosto: 1 kratka. Ukośnie: √2. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Narysuj drogę.<br>Zaoszczędź każdą kratkę.</h2><p>Kliknij START, a potem klikaj sąsiednie punkty siatki — jedna kratka na ruch. Od STARTU do METY, po przecięciach siatki. Zmierz się z geometrią toru i znajdź najkrótszą legalną trasę.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Prosto: 1 kratka. Ukośnie: √2. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
   );
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
@@ -111,6 +109,7 @@ function settings() {
   button("menu", menu);
 }
 function start(kind: Kind, difficulty: number, seed: string, l = 0) {
+  invalid = false;
   awaiting = true;
   level = l;
   game = undefined;
@@ -157,11 +156,13 @@ function draw() {
       zoom,
       pan,
       load("largeInk", false),
+      game.choices,
+      game.started,
     );
 }
 function screen() {
   shell(
-    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level}` : `Trudność ${track.difficulty}`}</span><div class="layout"><div><canvas aria-label="Tor: rozpocznij w punkcie START i rysuj po siatce" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><small>Długość twojej trasy</small><p class="metric"><span id="length">0,00</span> kr.</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Rozpocznij na czerwonym punkcie. Podnieś palec i kontynuuj od końca linii.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status"></p><div id="result"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level}` : `Trudność ${track.difficulty}`}</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij czerwony START. <b>2.</b> Klikaj podświetlone sąsiednie punkty. <b>Jeden klik = jedna kratka.</b></p><canvas aria-label="Tor: kliknij START, potem klikaj sąsiednie węzły, po jednej kratce" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><small>Długość twojej trasy</small><p class="metric"><span id="length">0,00</span> kr.</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Klikaj kolejne węzły: góra, dół, lewo, prawo lub po przekątnej. Każdy klik dodaje tylko jeden odcinek. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij czerwony punkt START.</p><div id="result"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
   button("menu", menu);
   button("undo", () => undo(1));
@@ -221,46 +222,30 @@ function screen() {
       ),
     };
   };
-  canvas.onpointerdown = (e) => {
-    if (!game || game.done) return;
-    const p = point(e),
-      last = track.nodes[game.last];
-    if (Math.hypot(p.x - last.x, p.y - last.y) > 1.2) {
-      status("Dotknij końca swojej linii (lub STARTU).");
-      return;
-    }
-    active = e.pointerId;
-    canvas.setPointerCapture(e.pointerId);
-    e.preventDefault();
-  };
-  canvas.onpointermove = (e) => {
-    if (active !== e.pointerId || !game || game.done) return;
-    const events = e.getCoalescedEvents?.() ?? [e];
-    for (const sample of events.length ? events : [e]) {
-      const target = point(sample);
-      for (const p of interpolate(track.nodes[game.last], target)) {
-        const id = track.edges[game.last].find(
-          (id) => track.nodes[id].x === p.x && track.nodes[id].y === p.y,
-        );
-        if (id === undefined || !game.move(id)) {
-          invalid = true;
-          status("Krawędź toru lub niewłaściwa kolejność bramek.");
-          break;
-        }
-        invalid = false;
-        status("");
-        if (game.done) break;
-      }
-    }
-    update();
-    e.preventDefault();
-  };
-  const release = () => {
-    active = null;
-  };
-  canvas.onpointerup = release;
-  canvas.onpointercancel = release;
-  canvas.onlostpointercapture = release;
+  bindNodeClicks(
+    canvas,
+    point,
+    (node) => {
+      if (!game) return;
+      const result = game.select(node);
+      invalid = ["need-start", "too-far", "illegal"].includes(result);
+      const messages = {
+        start:
+          "START wybrany. Kliknij jeden z podświetlonych sąsiednich punktów.",
+        move: "Odcinek dodany. Kliknij następny sąsiedni punkt.",
+        same: "To aktualny koniec trasy. Kliknij sąsiedni punkt, aby dodać odcinek.",
+        "need-start": "Najpierw kliknij czerwony punkt START.",
+        "too-far":
+          "Za daleko! Jeden ruch to tylko jedna kratka — prosto lub po przekątnej.",
+        illegal:
+          "Ten odcinek wychodzi poza tor lub omija wymaganą bramkę. Wybierz podświetlony punkt.",
+        done: "Tor ukończony! Możesz zobaczyć najlepszą trasę lub zagrać ponownie.",
+      };
+      status(messages[result]);
+      update();
+    },
+    () => status("Klikaj pojedyncze punkty. Przeciąganie nie dodaje odcinków."),
+  );
   draw();
 }
 function status(text: string) {
@@ -301,6 +286,12 @@ function undo(n: number) {
   if (!game) return;
   while (n--) game.undo();
   show = false;
+  invalid = false;
+  status(
+    game.started
+      ? "Kliknij sąsiedni podświetlony punkt."
+      : "Kliknij czerwony punkt START.",
+  );
   document.querySelector("#result")!.innerHTML = "";
   update();
 }
@@ -309,7 +300,7 @@ function reset() {
   show = false;
   invalid = false;
   document.querySelector("#result")!.innerHTML = "";
-  status("");
+  status("Kliknij czerwony punkt START.");
   update();
 }
 function next() {

@@ -4,7 +4,6 @@ import { generate, campaign, type Kind } from "../src/generator";
 import { segmentIn, distance } from "../src/geometry";
 import { solve, complete } from "../src/solver";
 import { Game } from "../src/game";
-import { interpolate } from "../src/input";
 import { record, load } from "../src/storage";
 describe("geometria", () => {
   it("sprawdza cały odcinek, również przez dziurę", () => {
@@ -23,14 +22,39 @@ describe("geometria", () => {
     expect(segmentIn({ x: 2, y: 4 }, { x: 6, y: 4 }, outer, hole)).toBe(false);
     expect(segmentIn({ x: 1, y: 1 }, { x: 2, y: 2 }, outer, hole)).toBe(true);
   });
-  it("liczy przekątne i uzupełnia osiem kierunków", () => {
+  it("kliknięcia obsługują wszystkie osiem kierunków i prawdziwy koszt", () => {
+    const t = generate("osiem-kierunkow", "rally");
+    t.start = t.edges.findIndex((edges) => edges.length === 8);
+    t.regions = t.nodes.map(() => 0);
+    for (const next of t.edges[t.start]) {
+      const g = new Game(t);
+      expect(g.select(t.nodes[next])).toBe("need-start");
+      expect(g.select(t.nodes[t.start])).toBe("start");
+      expect(g.select(t.nodes[next])).toBe("move");
+      expect(g.path).toHaveLength(2);
+      expect(g.length).toBe(distance(t.nodes[t.start], t.nodes[next]));
+    }
     expect(distance({ x: 0, y: 0 }, { x: 1, y: 1 })).toBe(Math.SQRT2);
-    for (let y = -1; y <= 1; y++)
-      for (let x = -1; x <= 1; x++)
-        if (x || y)
-          expect(
-            interpolate({ x: 0, y: 0 }, { x: x * 5, y: y * 5 }),
-          ).toHaveLength(5);
+  });
+  it("jeden klik nigdy nie dodaje kilku kratek ani nie zmienia odrzuconej trasy", () => {
+    const t = generate("klik", "rally"),
+      g = new Game(t),
+      start = t.nodes[t.start];
+    expect(g.select(start)).toBe("start");
+    expect(g.select(start)).toBe("same");
+    expect(g.select({ x: start.x + 2, y: start.y })).toBe("too-far");
+    expect(g.select({ x: start.x + 2, y: start.y + 2 })).toBe("too-far");
+    expect(g.length).toBe(0);
+    expect(g.path).toEqual([t.start]);
+    expect(g.stages).toEqual([0]);
+    const next = g.choices[0];
+    expect(g.select(t.nodes[next])).toBe("move");
+    g.undo();
+    expect(g.started).toBe(true);
+    expect(g.last).toBe(t.start);
+    g.clear();
+    expect(g.started).toBe(false);
+    expect(g.choices).toEqual([]);
   });
   it("wyznacza rzeczywiste optimum na prostym grafie", () => {
     const t = generate("simple", "rally");

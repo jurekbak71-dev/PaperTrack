@@ -23,3 +23,12 @@ LD_LIBRARY_PATH=/workspace/.cache/papertrack-browser-libs/usr/lib/x86_64-linux-g
 **Publikacja nie powiodła się:** osobny job `deploy` zwrócił 404 z komunikatem „Ensure GitHub Pages has been enabled”. Repozytorium zgłaszało `has_pages: false`, a próba utworzenia strony przez API zwróciła `403 Resource not accessible by integration`. Użytkownik musi włączyć **Settings → Pages → Source → GitHub Actions**, a następnie ponowić nieudany job publikacji. Nie potwierdzono działającego adresu gry.
 
 Nie wykonano testów na fizycznych urządzeniach iPhone/iPad. Emulacja WebKit nie zastępuje weryfikacji sprzętowej.
+
+## Poprawka sterowania: pojedyncze kliknięcia
+
+Zastąpiono przeciąganie wyborem kolejnych punktów. Osobny klik STARTU rozpoczyna próbę; każdy następny klik sąsiedniego węzła dodaje dokładnie jeden odcinek. Dalsze punkty, przeciąganie, anulowany gest i odcinki poza torem nie modyfikują trasy. Ekran zawiera instrukcję i podświetla wszystkie legalne sąsiednie węzły.
+
+- ESLint i TypeScript strict: poprawne.
+- Grupa jednostkowa `geometria`: 8/8, w tym wszystkie osiem kierunków, odrzucanie skoków i pełna kampania. Trzech długich testów seedów nie powtarzano dla zmiany sterowania — generator nie został zmieniony; ich wcześniejszy pełny wynik opisano powyżej.
+- E2E Chromium + profile iPhone/iPad w WebKit: **15/15**, 27,5 s. Faktyczne kliknięcia myszą i dotknięcia obejmują pełne ukończenie toru, offline, odmowę skoku, ponowny klik tego samego punktu, przeciąganie, anulowanie, cofanie, restart oraz powiększenie i przesunięcie planszy.
+- `npm run package` odtwarza plik HTML i ZIP bez zagnieżdżania wcześniejszych paczek; źródła w ZIP pochodzą z aktualnych plików roboczych.

@@ -199,3 +199,21 @@ label input[type="checkbox"] {
   min-height: 0;
   margin-right: 10px;
 }
+.click-help {
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  background: #fcf8eb;
+  padding: 10px 12px;
+  border-left: 3px solid #267c72;
+  margin: 0 0 12px;
+}
+canvas {
+  cursor: crosshair;
+}
+.status {
+  color: #243f75;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}

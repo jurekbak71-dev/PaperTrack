@@ -1,11 +1,14 @@
-PAPER TRACK — GOTOWA GRA
+PAPER TRACK — STEROWANIE KLIKNIĘCIAMI
 
-1. Rozpakuj ZIP.
-2. Otwórz PaperTrack.html w Chrome lub Edge (dwuklik).
-3. Wybierz Nowa gra lub Kampania.
+1. Otwórz PaperTrack.html dwuklikiem w Chrome lub Edge.
+2. Wybierz Nowa gra albo Kampania.
+3. Kliknij czerwony punkt START.
+4. Kliknij sąsiedni podświetlony punkt: prosto albo po przekątnej. Powstanie jeden odcinek.
+5. Klikaj następne sąsiednie punkty. Jeden klik = jedna kratka. Dalsze punkty są odrzucane.
 
-Nie trzeba instalować Node.js ani uruchamiać serwera. Cała gra i generator są w pliku HTML i działają bez internetu.
+Nie przeciągaj myszy. Na telefonie dotykaj kolejnych punktów. Przyciskiem + powiększysz planszę.
+Cofnij usuwa ostatni odcinek, Cofnij 5 usuwa kilka, Restart rozpoczyna próbę od nowa.
 
-Folder kod-zrodlowy zawiera pełny projekt TypeScript, testy, README i workflow GitHub Pages. Aby rozwijać projekt: zainstaluj Node.js 24, wykonaj npm ci i npm run dev w tym folderze.
-
-Wersja jednoplikowa służy do lokalnego grania. Instalacja PWA na iPhone/iPad wymaga wersji hostowanej przez HTTPS (instrukcje GitHub Pages w README).
+Gra HTML działa bez internetu, bez Node.js i bez serwera.
+ZIP zawiera także pełne źródła w folderze kod-zrodlowy. W tym folderze: npm ci, następnie npm run dev (Node.js 24).
+Instalacja PWA na iPhone/iPad wymaga wersji hostowanej przez HTTPS.

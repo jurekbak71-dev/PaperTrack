@@ -8,6 +8,8 @@ export function render(
   zoom: number,
   pan = { x: 0, y: 0 },
   contrast = false,
+  choices: number[] = [],
+  started = false,
 ) {
   const rect = canvas.getBoundingClientRect(),
     dpr = Math.min(devicePixelRatio || 1, 3);
@@ -92,9 +94,25 @@ export function render(
     c.fillStyle = "#243f75";
     c.fillText(label, p.x - 2, p.y - 1);
   }
+  // Show every currently legal neighbour, never the hidden optimal route.
+  for (const id of choices) {
+    const next = t.nodes[id];
+    c.beginPath();
+    c.arc(next.x, next.y, 0.23, 0, Math.PI * 2);
+    c.fillStyle = "#fffdf3";
+    c.fill();
+    c.strokeStyle = "#267c72";
+    c.lineWidth = 0.1;
+    c.stroke();
+  }
   const p = t.nodes[path.at(-1) ?? t.start];
   c.beginPath();
-  c.arc(p.x, p.y, 0.24, 0, 7);
-  c.fillStyle = "#173d8a";
+  c.arc(p.x, p.y, started ? 0.28 : 0.42, 0, 7);
+  c.fillStyle = started ? "#173d8a" : "#be4540";
   c.fill();
+  c.beginPath();
+  c.arc(p.x, p.y, 0.55, 0, Math.PI * 2);
+  c.strokeStyle = started ? "#173d8a" : "#be4540";
+  c.lineWidth = 0.08;
+  c.stroke();
 }
