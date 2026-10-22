@@ -112,3 +112,5 @@ Dodano dostępną z menu, gry i nakładki obrotu instrukcję: Safari → Udostę
 - Generator, reguły i solver nie zmieniły się; pełny workflow CI nadal uruchamia wszystkie testy, w tym 3000 seedów. Nie wykonano testów na fizycznym iPhonie ani fizycznej instalacji z Safari; emulacja WebKit nie zastępuje tej weryfikacji.
 
 Końcowy eksport HTML sprawdzono offline przez `file://`: pełny pojedynek i instrukcja instalacji przeszły w desktop Chromium oraz WebKit z profilem iPhone’a w poziomie. Wariant mobilny zachowuje kratkę 36 px, a po wybraniu „Cały tor” umożliwia długą prostą do mety. Brak błędów JavaScript. ZIP zawiera ten sam HTML i aktualne źródła.
+
+Końcowe doprecyzowanie proporcji mobilnego Canvas: obrys CSS zamiast obramowania zapobiega ułamkowemu ściskaniu różnych osi prostokątnego bitmapowego pola. Dodano sprawdzenie, że rozmiar treści odpowiada wymiarowi viewportu Canvas. Ponowne testy mobilne: 5 przeszło, 1 scenariusz telefonu nieadekwatny dla desktopu, 12 s.

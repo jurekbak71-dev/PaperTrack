@@ -300,6 +300,9 @@ dialog::backdrop {
     height: 0;
     min-height: 0;
     aspect-ratio: auto;
+    border: 0;
+    outline: 1px solid #b6b4a4;
+    outline-offset: -1px;
     box-shadow: none;
   }
   .playing .view-controls {

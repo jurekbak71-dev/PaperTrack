@@ -22,6 +22,13 @@ test("telefon: obrót, duże kratki, śledzenie punktu i przesuwanie bez rysowan
   const canvas = page.locator("canvas"),
     box = (await canvas.boundingBox())!;
   expect(box.width).toBeGreaterThan(500);
+  // A rectangular canvas must not compress one axis through a CSS border.
+  const content = await canvas.evaluate((c) => ({
+    width: c.clientWidth,
+    height: c.clientHeight,
+  }));
+  expect(content.width).toBe(box.width);
+  expect(content.height).toBe(box.height);
   expect(box.height).toBeGreaterThan(220);
   expect(await canvas.getAttribute("data-cell")).toBe("36");
   expect(
