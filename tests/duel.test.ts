@@ -345,3 +345,98 @@ it("strona z samymi ruchami prowadzącymi do pętli przegrywa, także AI", () =>
     expect(m.reason).toContain("zapętlenia");
   }
 });
+
+it("PAT na wspólnym starcie: obie strony bez ruchu, niezależnie od punktów karnych", () => {
+  const t = arena(),
+    m = new Duel({ ...t, edges: t.edges.map(() => []) }, -7);
+  expect(m.select(t.nodes[t.start])).toBe("start");
+  expect(m.winner).toBe("draw");
+  expect(m.pat).toBe(true);
+  expect(m.player.penaltyPoints).toBe(-7);
+  expect(m.playOpponent()).toBe("finished");
+  m.clear();
+  expect(m.pat).toBe(false);
+  expect(m.winner).toBeNull();
+});
+it("jednoczesna blokada po ruchu daje PAT zamiast zwycięstwa zależnego od kolejności tur", () => {
+  const m = match(),
+    t = m.player.track;
+  m.player.track = {
+    ...t,
+    edges: t.edges.map((_, i) =>
+      i === id(t, 2, 2)
+        ? [id(t, 3, 2)]
+        : i === id(t, 3, 2)
+          ? [id(t, 2, 2)]
+          : [],
+    ),
+  };
+  m.opponent.track = { ...m.opponent.track, edges: t.edges.map(() => []) };
+  m.select({ x: 2, y: 2 });
+  expect(m.winner).toBeNull();
+  expect(m.select({ x: 3, y: 2 })).toBe("move");
+  expect(m.winner).toBe("draw");
+  expect(m.pat).toBe(true);
+  expect(m.player.score).toBeGreaterThan(m.opponent.score);
+  m.undo();
+  expect(m.pat).toBe(false);
+  expect(m.winner).toBeNull();
+});
+it("PAT obejmuje obie strony z samymi powrotami prowadzącymi do zapętlenia", () => {
+  const m = match();
+  for (const side of ["player", "opponent"] as const) {
+    const g = m[side];
+    setPath(g, [
+      { x: 2, y: 2 },
+      { x: 6, y: 2 },
+    ]);
+    g.track = {
+      ...g.track,
+      edges: g.track.edges.map((_, i) =>
+        i === g.last ? [id(g.track, 5, 2)] : [],
+      ),
+    };
+    expect(m.unitMoves(side)).toEqual([]);
+  }
+  m.turn = "opponent";
+  m.playOpponent();
+  expect(m.winner).toBe("draw");
+  expect(m.pat).toBe(true);
+});
+it("ukończony przejazd nie jest blokadą i nie tworzy fałszywego PAT", () => {
+  const m = match();
+  m.opponent.track = {
+    ...m.opponent.track,
+    edges: m.opponent.track.edges.map(() => []),
+  };
+  m.select({ x: 2, y: 2 });
+  m.select({ x: 10, y: 2 });
+  expect(m.player.done).toBe(true);
+  expect(m.winner).toBe("player");
+  expect(m.pat).toBe(false);
+});
+it("AI wybiera nową ścieżkę zamiast dobrowolnego cofnięcia, gdy nie ma pełnego planu", () => {
+  const m = match(),
+    g = m.opponent;
+  tweak();
+  function tweak() {
+    setPath(g, [
+      { x: 2, y: 4 },
+      { x: 6, y: 4 },
+    ]);
+    g.track = {
+      ...g.track,
+      edges: g.track.edges.map((_, i) =>
+        i === g.last
+          ? [id(g.track, 5, 4), id(g.track, 6, 5)]
+          : i === id(g.track, 5, 4)
+            ? [id(g.track, 5, 5)]
+            : [],
+      ),
+    };
+  }
+  m.turn = "opponent";
+  expect(m.playOpponent()).toBe("move");
+  expect(g.track.nodes[m.opponent.last]).toEqual({ x: 6, y: 5 });
+  expect(m.mustBranch.opponent).toBe(false);
+});

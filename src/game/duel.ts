@@ -13,6 +13,7 @@ type Snapshot = {
   mustBranch: Record<Side, boolean>;
   turn: Side;
   winner: Winner;
+  pat: boolean;
   reason: string;
   moves: number;
 };
@@ -33,6 +34,7 @@ export class Duel {
   opponent: Game;
   turn: Side = "player";
   winner: Winner = null;
+  pat = false;
   reason = "";
   moves = 0;
   reverse: Record<Side, Reverse | null> = { player: null, opponent: null };
@@ -53,6 +55,7 @@ export class Duel {
       opponent: this.opponent.fork(),
       turn: this.turn,
       winner: this.winner,
+      pat: this.pat,
       reason: this.reason,
       moves: this.moves,
       reverse: { ...this.reverse },
@@ -64,6 +67,7 @@ export class Duel {
     this.opponent = s.opponent;
     this.turn = s.turn;
     this.winner = s.winner;
+    this.pat = s.pat;
     this.reason = s.reason;
     this.moves = s.moves;
     this.reverse = { ...s.reverse };
@@ -196,10 +200,7 @@ export class Duel {
     const candidate = this.preview("player", p);
     if (candidate.result === "start") {
       this.player = candidate.game;
-      if (!this.unitMoves("player").length) {
-        this.winner = "opponent";
-        this.reason = "Gracz zablokowany — brak ruchu bez zapętlenia";
-      }
+      this.resolveBlockage("player");
       return "start";
     }
     if (
@@ -230,11 +231,6 @@ export class Duel {
     return candidate.result;
   }
   private next(side: Side) {
-    if (this.moves > this.track.nodes.length * 6) {
-      this.winner = "draw";
-      this.reason = "Limit tur — remis";
-      return;
-    }
     if (this.player.done && this.opponent.done) {
       this.winner =
         Math.abs(this.player.score - this.opponent.score) < 1e-9
@@ -256,22 +252,51 @@ export class Duel {
         : "player";
     if (this[this.turn].done)
       this.turn = this.turn === "player" ? "opponent" : "player";
-    if (!this.unitMoves(this.turn).length) {
-      this.winner = this.turn === "player" ? "opponent" : "player";
-      this.reason =
-        this.turn === "player"
-          ? "Gracz zablokowany — brak ruchu bez zapętlenia"
-          : "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
+    if (this.resolveBlockage(this.turn)) return;
+    if (this.moves > this.track.nodes.length * 6) {
+      this.winner = "draw";
+      this.reason = "Limit tur — remis";
     }
   }
-  unitMoves(side: Side) {
-    return this[side].track.edges[this[side].last].filter((id) => {
-      const result = this.preview(side, this[side].track.nodes[id]).result;
-      if (result !== "move" && result !== "bounce") return false;
-      const candidate = this.preview(side, this[side].track.nodes[id]);
-      if (!candidate.retreat && !candidate.bounce) return true;
-      return this.hasExit(side, candidate, 2);
-    });
+  /** Resolve simultaneous immobility before assigning a loss by turn order.
+   * A finisher is not a blocked racer and cannot cause a false PAT. */
+  private resolveBlockage(side: Side) {
+    const blocked = {
+      player: !this.player.done && !this.unitMoves("player").length,
+      opponent: !this.opponent.done && !this.unitMoves("opponent").length,
+    };
+    if (blocked.player && blocked.opponent) {
+      this.winner = "draw";
+      this.pat = true;
+      this.reason = "Obie strony bez ruchu niewymagającego zapętlenia";
+      return true;
+    }
+    if (!blocked[side]) return false;
+    this.winner = side === "player" ? "opponent" : "player";
+    this.reason =
+      side === "player"
+        ? "Gracz zablokowany — brak ruchu bez zapętlenia"
+        : "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
+    return true;
+  }
+  private playable(side: Side, candidate: ReturnType<Duel["preview"]>) {
+    return (
+      (candidate.result === "move" || candidate.result === "bounce") &&
+      ((!candidate.retreat && !candidate.bounce) ||
+        this.hasExit(side, candidate, 2))
+    );
+  }
+  unitMoves(side: Side): number[] {
+    // Availability concerns drawing, even before the human selects START.
+    if (!this[side].started) {
+      const copy = Object.assign(Object.create(Duel.prototype) as Duel, this);
+      copy[side] = this[side].fork();
+      copy[side].started = true;
+      return copy.unitMoves(side);
+    }
+    return this[side].track.edges[this[side].last].filter((id) =>
+      this.playable(side, this.preview(side, this[side].track.nodes[id])),
+    );
   }
   /** A bounce/retreat is not an escape if it can only repeat an old stroke.
    * Look through at most the forced retreat and the following fresh departure. */
@@ -364,13 +389,40 @@ export class Duel {
     }
     return [];
   }
+  /** With no complete plan, prefer a new line with exits over pointless retreat.
+   * Higher levels also consider their mobility and the human's remaining exits. */
+  private fallbackOpponent(options: number[]) {
+    let best = options[0],
+      bestScore = -Infinity;
+    for (const id of options) {
+      const candidate = this.preview("opponent", this.opponent.track.nodes[id]);
+      if (candidate.game.done) return id;
+      let score = (candidate.retreat ? -100 : 0) + (candidate.bounce ? -20 : 0);
+      if (this.track.difficulty >= 3) {
+        const copy = Object.assign(Object.create(Duel.prototype) as Duel, this);
+        copy.opponent = candidate.game;
+        copy.reverse = { ...this.reverse, opponent: candidate.bounce };
+        copy.mustBranch = { ...this.mustBranch, opponent: !!candidate.retreat };
+        const exits = copy.unitMoves("opponent").length;
+        score += exits ? exits * this.track.difficulty : -1000;
+        score +=
+          (candidate.game.stages.at(-1)! - this.opponent.stages.at(-1)!) * 20;
+        if (this.track.difficulty >= 6)
+          score -= copy.unitMoves("player").length;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = id;
+      }
+    }
+    return best;
+  }
   playOpponent(): DuelResult {
     if (this.winner) return "finished";
     if (this.turn !== "opponent") return "turn";
     const options = this.unitMoves("opponent");
     if (!options.length) {
-      this.winner = "player";
-      this.reason = "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
+      this.resolveBlockage("opponent");
       return "finished";
     }
     const plan = this.reverse.opponent ? [] : this.planOpponent();
@@ -389,7 +441,8 @@ export class Duel {
         plan.length,
         options[Math.floor(noise * 1000) % options.length],
       );
-    let target = plan[1] ?? options[0];
+    const fallback = this.fallbackOpponent(options);
+    let target = plan[1] ?? fallback;
     const rng = random(`${this.track.seed}:red:${this.moves}`),
       span = 1 + Math.floor(rng() * (1 + this.track.difficulty * 2));
     if (plan.length > 2 && span > 1) {
@@ -407,19 +460,17 @@ export class Duel {
             Math.sign(p.y - a.y) !== dy
           )
             break;
-          const result = this.preview("opponent", p).result;
-          if (result !== "move" && result !== "bounce") break;
+          if (!this.playable("opponent", this.preview("opponent", p))) break;
           target = plan[j];
         }
     }
     let candidate = this.preview("opponent", this.opponent.track.nodes[target]);
-    if (candidate.result !== "move" && candidate.result !== "bounce") {
-      target = options[0];
+    if (!this.playable("opponent", candidate)) {
+      target = fallback;
       candidate = this.preview("opponent", this.opponent.track.nodes[target]);
     }
     if (candidate.result !== "move" && candidate.result !== "bounce") {
-      this.winner = "player";
-      this.reason = "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
+      this.resolveBlockage("opponent");
       return "finished";
     }
     this.opponent = candidate.game;
@@ -447,6 +498,7 @@ export class Duel {
     this.mustBranch = { player: false, opponent: false };
     this.turn = "player";
     this.winner = null;
+    this.pat = false;
     this.reason = "";
     this.moves = 0;
     this.history = [];

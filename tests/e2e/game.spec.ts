@@ -304,3 +304,33 @@ test("plansza ma wspólną kropkę START i brak numerowanych strzałek", async (
   expect(labels).not.toContain("START AI");
   await expect(page.locator("#app")).toContainText("tej samej kropki");
 });
+
+test("obustronna blokada pokazuje PAT i zatrzymuje ruchy AI", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      constructor(...args: ConstructorParameters<typeof Worker>) {
+        super(...args);
+        this.addEventListener("message", (e) => {
+          if (!e.data.track) return;
+          e.data.track.edges = e.data.track.edges.map(() => []);
+          e.data.redTrack.edges = e.data.redTrack.edges.map(() => []);
+        });
+      }
+    };
+  });
+  const t = generate("pat-browser", "rally", 1);
+  await page.goto("./#PT1-rally-1-pat-browser");
+  await expect(page.locator("canvas")).toBeVisible();
+  await nodeClick(page, t, t.start);
+  await expect(page.locator("#match-result")).toContainText("PAT — remis.");
+  await expect(page.locator("#turn")).toHaveText("Pojedynek zakończony");
+  await expect(page.locator("#penalties")).toContainText("0 pkt");
+  await nodeClick(page, t, t.edges[t.start][0]);
+  await expect(page.locator("#clicks")).toHaveText("0");
+  await expect(page.locator("#opponent-clicks")).toHaveText("0");
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await expect(page.locator("#match-result")).toHaveText("");
+});

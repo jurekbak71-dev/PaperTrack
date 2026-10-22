@@ -1,5 +1,7 @@
 # Paper Track — pojedynek na kartce
 
+[Uruchom grę w Safari / przeglądarce](https://jurekbak71-dev.github.io/PaperTrack/). Na iPhonie: Udostępnij → Do ekranu początkowego.
+
 Logiczna gra PWA po polsku, bez pojazdów i fizyki. Gracz rysuje **niebieską**, a wirtualny przeciwnik **czerwoną** linię. Ruchy są naprzemienne, linie ograniczają sobie przejazd.
 
 ## Sterowanie
@@ -32,7 +34,7 @@ Zamknięcie pełnego okrążenia może dotknąć własnego STARTU/METY. Odcinek 
 
 - **Banda: −5 pkt i przegrany pojedynek.** Sprawdzany jest cały odcinek, końce, styczność i pokrywanie z bandą. Czerwony znak wskazuje pierwszy kontakt.
 - **Nielegalny ruch: −1 pkt i utrata tury.** Dotyczy długiej przekątnej, nieprawidłowego kierunku, przecięcia/nakładania linii, pominięcia wymaganej bramki lub złamania obowiązkowego odbicia. Linia gracza nie jest wtedy dodawana; AI wykonuje swoją turę.
-- Brak jakiegokolwiek ruchu bez zapętlenia przegrywa pojedynek. Cofnięcie nie jest wyjściem, jeśli po nim nie ma nowej ścieżki; nie można w nieskończoność odbijać się między zajętymi punktami. Limit tur zabezpiecza przed niekończącą się partią.
+- Brak jakiegokolwiek ruchu bez zapętlenia przegrywa pojedynek. Cofnięcie nie jest wyjściem, jeśli po nim nie ma nowej ścieżki; nie można w nieskończoność odbijać się między zajętymi punktami. **Gdy obie nieukończone strony są zablokowane jednocześnie, jest PAT — remis**, bez rozstrzygania ilorazem lub karami. Sprawdzane są obie strony, więc wynik nie zależy od kolejności tur. Ukończenie przejazdu nie jest blokadą. Limit tur zabezpiecza przed niekończącą się partią.
 - Wybór STARTU, kliknięcie aktualnego końca, anulowany gest i kliknięcia podczas oczekiwania na AI nie są karane.
 
 „Cofnij” odtwarza stan sprzed ostatniej akcji gracza, razem z odpowiedzią AI. „Cofnij 5” cofa kilka takich akcji. Kary pozostają naliczone. Wypadku nie można cofnąć. Restart przywraca wspólny start dla obu stron i pierwszą turę, zachowując kary na tym torze. Są one zapisywane także po ponownym otwarciu planszy.
@@ -45,7 +47,7 @@ Trudność wzrasta od 1 do 10, co 10 poziomów. Szerokość maleje od 6,30 do 1,
 
 Na trudności 10 stosowana jest osobna kręta geometria na diagonalnej siatce: wyłącznie jednokratkowe przekątne, bez pionów i poziomów. Dwa kolory siatki mają oddzielne komponenty; graf zawiera komponent startu. Wysepki na tym wąskim torze leżą przy krawędziach i nie odcinają jedynej ciągłej linii przejazdu. Szerokość nominalna opisuje korytarz przed dodaniem przeszkód, nie prześwit obok wysepki. Ze wspólnego startu istnieje sprawdzony pełny przejazd, bez gwarancji przejezdności po wzajemnym blokowaniu.
 
-AI planuje po legalnym grafie z bramkami i aktualnymi liniami. Na niższych stopniach czasem wybiera lokalny wariant, coraz rzadziej wraz ze wzrostem trudności. Od trudności 6 wyszukuje drogę po całych prostych, minimalizując liczbę kliknięć w planie. Wydłuża proste, aby poprawiać iloraz. Poziom 10 nie popełnia losowych błędów wyboru. AI nie ma dostępu do przyszłych ruchów gracza.
+AI planuje po legalnym grafie z bramkami i aktualnymi liniami. Na niższych stopniach czasem wybiera lokalny wariant, coraz rzadziej wraz ze wzrostem trudności. Od trudności 6 wyszukuje drogę po całych prostych, minimalizując liczbę kliknięć w planie. Wydłuża proste, aby poprawiać iloraz. Poziom 10 nie popełnia losowych błędów wyboru. Jeśli nie ma pełnej zaplanowanej trasy, AI preferuje nowy ślad zamiast cofania; od trudności 3 bierze pod uwagę własne wyjścia i postęp, a od 6 także wyjścia gracza. Odrzuca odbicia i cofnięcia prowadzące jedynie do zapętlenia. AI nie ma dostępu do przyszłych ruchów gracza.
 
 Tryb losowy ma trzy typy torów i dziesięć trudności. Kod `PT1-typ-trudność-seed` odtwarza planszę według bieżącej wersji zasad. W kampanii używane są seedy `kampania-v3-numer`.
 
@@ -83,7 +85,7 @@ npm run package
 
 ## Architektura i PWA
 
-- `src/game/duel.ts`: tury, osobne starty/mety, legalność kontaktu między liniami, odbicie, planowanie AI, wynik pojedynku i historia całych tur.
+- `src/game/duel.ts`: tury, wspólny start i meta, legalność kontaktu między liniami, odbicie, planowanie AI, wynik pojedynku i historia całych tur.
 - `src/game/index.ts`: pojedynczy przejazd, długie proste, bramki pośrednie, banda, długość i kliknięcia.
 - `src/game/scoring.ts`: iloraz i koszt przekątnej 1.
 - `src/geometry`: analityczna geometria, pierwszy kontakt z bandą i dokładne przecięcia/nałożenia linii.

@@ -83,3 +83,15 @@ Po dobrowolnym albo wymuszonym cofnięciu o jedną kratkę trzeba odejść nową
 - ESLint, TypeScript strict, build i eksport HTML/ZIP: poprawne.
 - Końcowy samodzielny HTML otwarty przez `file://`, bez internetu: pełny pojedynek, wyższy iloraz jako wygrana, wspólny start i brak starych etykiet potwierdzone osobno w Chromium i WebKit, bez błędów JavaScript.
 - Nadal bez testów na fizycznym iPhonie/iPadzie. Na iOS zalecana jest instalacja PWA przez Safari z adresu HTTPS; pobrany lokalny plik HTML z aplikacji Pliki nie jest odpowiednikiem instalacji PWA. GitHub Pages wymaga włączenia w ustawieniach repozytorium; poprzednio potwierdzone ograniczenie uprawnień integracji pozostaje.
+
+## PAT i poprawa decyzji awaryjnych AI
+
+Zasada zakończenia jest teraz symetryczna: obie nieukończone strony bez legalnych ruchów oznaczają PAT — remis, niezależnie od ilorazów i kar. Dopiero po wykluczeniu PAT blokada strony, na którą przypada tura, oznacza przegraną. Ukończony przejazd nie jest blokadą; wypadek nadal oznacza natychmiastową przegraną. Sprawdzenie działa przy starcie, zmianie tury i wejściu w ruch AI. Stan PAT jest odtwarzany przy undo i czyszczony przy restarcie. Brak klikniętego STARTU nie jest traktowany jako brak możliwości rysowania.
+
+Przegląd grywalności ujawnił dwie konkretne niespójności: rozstrzyganie obustronnej blokady według kolejności sprawdzania oraz awaryjny wybór pierwszego sąsiada przez AI, często cofnięcia. Dodano wspólne sprawdzenie blokad i preferowanie nowych ścieżek. Od trudności 3 awaryjna decyzja AI uwzględnia wyjścia i postęp; od 6 także wyjścia przeciwnika. Najbliższy ruch AI przechodzi tę samą kontrolę wyjścia z odbicia/cofnięcia co wykrywanie blokady.
+
+Lokalnie ESLint i TypeScript przeszły. Testy logiki: 35/35 poza plikiem core oraz 8/8 grupy geometria w core. Trzy testy stresowe generatora nie były powtarzane lokalnie dla tej poprawki — generator nie został zmieniony; zostają w pełnym workflow CI, a poprzedni pełny przebieg 39752732398 przeszedł również te testy.
+
+GitHub Pages zostało faktycznie włączone przez właściciela repozytorium. Ponowienie publikacji przebiegu https://github.com/jurekbak71-dev/PaperTrack/actions/runs/39752732398 zakończyło się sukcesem. Publiczny adres https://jurekbak71-dev.github.io/PaperTrack/ zwraca grę; uruchomienie planszy i aktywacja service workera potwierdzone przez WebKit z profilem iPhone 13. Nadal nie wykonano testów na fizycznym iPhonie.
+
+Pełne lokalne E2E po poprawce PAT: **33/33**, około 66 s, Chromium i profile iPhone/iPad w WebKit. Osobny scenariusz przez komunikację Web Workera wymusza obustronnie zablokowany graf i sprawdza napis „PAT — remis”, zatrzymanie AI, brak naliczania kar oraz reset. Pozostałe scenariusze pełnego pojedynku, odbicia, cofania, offline i wyników również przeszły.
