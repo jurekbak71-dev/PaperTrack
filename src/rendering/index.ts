@@ -66,6 +66,16 @@ export function render(
   c.stroke();
   c.translate(-0.08, -0.06);
   c.globalAlpha = 1;
+  // Mark every track node equally; these dots do not suggest a next move.
+  // Keep targets readable in overview and proportional when zoomed in.
+  const nodeRadius = Math.min(0.19, Math.max(2 / view.cell, 0.13));
+  c.fillStyle = contrast ? "#304e78" : "#617e9d";
+  c.beginPath();
+  for (const p of t.nodes) {
+    c.moveTo(p.x + nodeRadius, p.y);
+    c.arc(p.x, p.y, nodeRadius, 0, Math.PI * 2);
+  }
+  c.fill();
   c.font = contrast ? "1.2px cursive" : ".85px cursive";
   c.fillStyle = "#526989";
   const arrow = startArrow(t);

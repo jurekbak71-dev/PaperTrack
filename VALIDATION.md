@@ -122,3 +122,7 @@ Dodano selektor w menu, losowaniu i kampanii. Solo pomija AI i jego linię, zach
 ESLint/TypeScript oraz build poprawne. Jednostkowe testy pojedynku i solo: 24/24. Dotychczasowe scenariusze E2E: 38 poprawnych, jeden przypadek orientacji nieadekwatny do desktopu. Nowy scenariusz solo początkowo błędnie używał nawigacji tylko do hasha bez przeładowania — zastąpiono ją rzeczywistym wpisaniem kodu w formularzu. Ponowiony scenariusz przeszedł we wszystkich trzech profilach: Chromium, iPhone WebKit, iPad WebKit. Fizycznego iPhone’a/iPada nie testowano.
 
 Runner CI przypięto do Ubuntu 24.04 zamiast zmiennego ubuntu-latest po dwukrotnym zawieszeniu instalacji zależności przeglądarek. Wszystkie testy pozostają w workflow.
+
+## Większe węzły
+
+Wszystkie węzły toru otrzymały widoczne kropki (średnica 0,26 kratki, około 9,4 CSS px przy mobilnej kratce 36 px; w oddaleniu promień co najmniej 2 CSS px do limitu 0,19 kratki). Jednakowy wygląd nie podpowiada legalnych następnych ruchów. Dotychczasowe przyciąganie obejmuje całą komórkę wokół węzła. Geometria i kary bez zmian. Lint i produkcyjny build poprawne; test kamery i trafiania w węzły poprawny. E2E powiększenia, przesuwania, mobilnej orientacji i solo: 8 poprawnych, 1 mobilny scenariusz nieadekwatny dla desktopu.
