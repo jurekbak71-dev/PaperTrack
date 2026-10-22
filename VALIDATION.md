@@ -95,3 +95,20 @@ Lokalnie ESLint i TypeScript przeszły. Testy logiki: 35/35 poza plikiem core or
 GitHub Pages zostało faktycznie włączone przez właściciela repozytorium. Ponowienie publikacji przebiegu https://github.com/jurekbak71-dev/PaperTrack/actions/runs/39752732398 zakończyło się sukcesem. Publiczny adres https://jurekbak71-dev.github.io/PaperTrack/ zwraca grę; uruchomienie planszy i aktywacja service workera potwierdzone przez WebKit z profilem iPhone 13. Nadal nie wykonano testów na fizycznym iPhonie.
 
 Pełne lokalne E2E po poprawce PAT: **33/33**, około 66 s, Chromium i profile iPhone/iPad w WebKit. Osobny scenariusz przez komunikację Web Workera wymusza obustronnie zablokowany graf i sprawdza napis „PAT — remis”, zatrzymanie AI, brak naliczania kar oraz reset. Pozostałe scenariusze pełnego pojedynku, odbicia, cofania, offline i wyników również przeszły.
+
+## Mobilny widok poziomy i instalacja offline
+
+Usunięto przyczynę nieczytelności na telefonie: dopasowanie całej siatki 52×52 do wąskiego ekranu. Na urządzeniu dotykowym gra zajmuje dynamiczną wysokość okna, działa w poziomie i ma prostokątny Canvas. W pionie nakładka prosi o obrót i wyłączenie blokady orientacji; pozwala otworzyć instrukcję instalacji lub wrócić do menu. Manifest preferuje landscape, ale nie zakłada się, że Safari honoruje blokadę z manifestu.
+
+Domyślny rozmiar kratki: **36 CSS px**, regulacja 28–56. Kamera podąża za niebieskim końcem po zaakceptowanym ruchu; przeciąganie przesuwa kartkę i nie dodaje odcinków. „Cały tor” udostępnia świadome oddalenie do przeglądu, a „Twój punkt” przywraca duże kratki. Cała geometria używa tej samej skali X/Y. Desktop zachowuje pełną planszę i sterowanie kliknięciami. Wynik końcowy na telefonie jest na początku przewijanego panelu. Duże przyciski i bezpieczne obszary nie zajmują pola Canvas.
+
+Dodano dostępną z menu, gry i nakładki obrotu instrukcję: Safari → Udostępnij → Do ekranu początkowego → Dodaj. Status „Gotowa do gry offline” pojawia się po gotowości service workera; eksport lokalnego HTML ma ten status od razu, bo zawiera całą grę. ZIP pozostaje wariantem na komputer, a instalacja iPhone korzysta z publicznej wersji HTTPS, bez App Store i pobierania ZIP.
+
+- ESLint/TypeScript i build: poprawne.
+- Lokalne testy jednostkowe poza niezmienionym `core.test.ts`: **36/36**, w tym nowy test kamery, proporcji i trafiania w węzły na prostokątnych ekranach.
+- Pełne lokalne E2E: **38 przeszło, 1 pominięto jako nieadekwatny do desktopu**, 60 s. Pominięcie dotyczy wyłącznie nowego scenariusza mobilnej orientacji w desktopowym profilu Chromium; oba profile dotykowe WebKit wykonały go w całości. Żaden istniejący scenariusz nie został wyłączony.
+- Dodatkowo po końcowej poprawce panelu instalacji powtórzono scenariusze mobilne: **5 przeszło, 1 desktopowy przypadek nieadekwatny**, 13,3 s. Sprawdzono pion 390×844, poziom 844×390 oraz mniejszy ekran 667×320, 36-pikselową kratkę, rzeczywisty tap STARTU i sąsiada, śledzenie końca, przesunięcie bez ruchu, widok całości/powrót, instrukcję oraz gotowość offline po przeładowaniu bez sieci. Długa prosta: po czterech przeciągnięciach widoku o łącznej odległości 40 kratek nadal 0 kliknięć rysujących, a tap końca daje 40 segmentów i jedno kliknięcie, przy niezmienionej kratce 36 px.
+- Obejrzano zrzut WebKit iPhone w poziomie: plansza ma **648×279 CSS px**, kratkę 36 px, widoczne przyciski i brak poziomego przepełnienia.
+- Generator, reguły i solver nie zmieniły się; pełny workflow CI nadal uruchamia wszystkie testy, w tym 3000 seedów. Nie wykonano testów na fizycznym iPhonie ani fizycznej instalacji z Safari; emulacja WebKit nie zastępuje tej weryfikacji.
+
+Końcowy eksport HTML sprawdzono offline przez `file://`: pełny pojedynek i instrukcja instalacji przeszły w desktop Chromium oraz WebKit z profilem iPhone’a w poziomie. Wariant mobilny zachowuje kratkę 36 px, a po wybraniu „Cały tor” umożliwia długą prostą do mety. Brak błędów JavaScript. ZIP zawiera ten sam HTML i aktualne źródła.

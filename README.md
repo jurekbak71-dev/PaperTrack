@@ -10,6 +10,14 @@ Kliknij **niebieski START**, potem koniec odcinka na przecięciu siatki. Pionowo
 
 Przyciski + / − powiększają widok, strzałki przesuwają kartkę, „Dopasuj” przywraca całość. Nie ma podświetlania legalnych ruchów ani pokazywania rozwiązania. Obok toru jest jedna strzałka kierunku startu. Numery i strzałki bramek nie są rysowane; wewnętrzne bramki nadal sprawdzają pełne okrążenie.
 
+## iPhone: poziomo i offline
+
+Nie trzeba pobierać ZIP ani korzystać z App Store. Otwórz https://jurekbak71-dev.github.io/PaperTrack/ **w Safari**, wybierz **Udostępnij → Do ekranu początkowego → Dodaj**. Uruchom ikonę przy włączonym internecie i poczekaj na **„Gotowa do gry offline”**. Następne rozgrywki działają bez sieci. Przyciski „Jak zainstalować na iPhonie?” w menu i „Instalacja / offline” podczas gry zawierają instrukcję krok po kroku.
+
+Na telefonie i tablecie gra jest przeznaczona do orientacji **poziomej**. W pionie planszę zasłania instrukcja obrotu; można wrócić do menu lub otworzyć instalację. Safari może ignorować blokadę orientacji z manifestu — wtedy obróć telefon ręcznie i wyłącz blokadę orientacji w Centrum sterowania. Układ używa dynamicznej wysokości okna i bezpiecznych obszarów iOS.
+
+Kratka ma domyślnie **36 CSS px**, regulacja 28–56 px. Kamera pokazuje fragment toru i podąża za niebieskim końcem po zaakceptowanym ruchu. Przeciągnięcie jednym palcem przesuwa kartkę i nigdy nie rysuje. **„Cały tor”** oddala całą planszę, aby obejrzeć trasę lub wybrać daleki koniec prostej. **„Twój punkt”** przywraca duże kratki i śledzenie. Osiem kierunków, koszty i reguły pojedynku pozostają takie same. Kratki są kwadratowe także na prostokątnym Canvas.
+
 ## Wynik to ILORAZ
 
 **Wynik = długość trasy w jednostkowych segmentach ÷ liczba kliknięć rysujących odcinki. Większy wynik wygrywa.**

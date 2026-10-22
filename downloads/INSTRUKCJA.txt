@@ -14,4 +14,4 @@ Cofnij cofa ostatnią akcję gracza i odpowiedź AI, Cofnij 5 cofa kilka tur, Re
 
 Gra HTML działa bez internetu, bez Node.js i bez serwera.
 ZIP zawiera także pełne źródła w folderze kod-zrodlowy. W tym folderze: npm ci, następnie npm run dev (Node.js 24).
-Instalacja PWA na iPhone/iPad wymaga wersji hostowanej przez HTTPS.
+Na iPhone otwórz w Safari https://jurekbak71-dev.github.io/PaperTrack/ → Udostępnij → Do ekranu początkowego → Dodaj. Uruchom ikonę z internetem, poczekaj na „Gotowa do gry offline”, potem graj bez sieci. Obróć telefon poziomo (wyłącz blokadę orientacji). Domyślna kratka: 36 px. Przesuwaj kartkę palcem, „Cały tor” oddala, „Twój punkt” przywraca duże kratki. ZIP i lokalny plik z aplikacji Pliki nie zastępują instalacji PWA na iPhonie.

@@ -19,15 +19,41 @@ async function pointClick(
   zoom = 1,
   pan = { x: 0, y: 0 },
 ) {
-  let box = (await page.locator("canvas").boundingBox())!;
-  let y = box.y + (((p.y + pan.y - 26) * zoom + 26) / 52) * box.width;
-  const height = page.viewportSize()!.height;
-  if (y < 20 || y > height - 20) {
-    await page.evaluate((delta) => window.scrollBy(0, delta), y - height / 2);
-    box = (await page.locator("canvas").boundingBox())!;
-    y = box.y + (((p.y + pan.y - 26) * zoom + 26) / 52) * box.width;
+  const canvas = page.locator("canvas");
+  const read = () =>
+    canvas.evaluate((el) => ({
+      cell: Number(el.dataset.cell),
+      x: Number(el.dataset.originX),
+      y: Number(el.dataset.originY),
+    }));
+  let box = (await canvas.boundingBox())!,
+    view = await read();
+  let localX = view.x + p.x * view.cell,
+    localY = view.y + p.y * view.cell;
+  if (
+    localX < 3 ||
+    localX > box.width - 3 ||
+    localY < 3 ||
+    localY > box.height - 3
+  ) {
+    await page.locator("#fit").click();
+    box = (await canvas.boundingBox())!;
+    view = await read();
+    localX = view.x + p.x * view.cell;
+    localY = view.y + p.y * view.cell;
   }
-  const x = box.x + (((p.x + pan.x - 26) * zoom + 26) / 52) * box.width;
+  const height = page.viewportSize()!.height;
+  if (box.y + localY < 20 || box.y + localY > height - 20) {
+    await page.evaluate(
+      (delta) => window.scrollBy(0, delta),
+      box.y + localY - height / 2,
+    );
+    box = (await canvas.boundingBox())!;
+  }
+  const x = box.x + localX,
+    y = box.y + localY;
+  void zoom;
+  void pan;
   if (test.info().project.name === "chromium") await page.mouse.click(x, y);
   else await page.touchscreen.tap(x, y);
 }
@@ -181,14 +207,21 @@ test("przeciąganie i anulowanie gestu nie dodają odcinków", async ({
   await expect(page.locator("canvas")).toBeVisible();
   await pointClick(page, start);
   const box = (await page.locator("canvas").boundingBox())!;
+  const view = await page
+    .locator("canvas")
+    .evaluate((el) => ({
+      cell: Number(el.dataset.cell),
+      x: Number(el.dataset.originX),
+      y: Number(el.dataset.originY),
+    }));
   await page.mouse.move(
-    box.x + (start.x / 52) * box.width,
-    box.y + (start.y / 52) * box.width,
+    box.x + view.x + start.x * view.cell,
+    box.y + view.y + start.y * view.cell,
   );
   await page.mouse.down();
   await page.mouse.move(
-    box.x + (next.x / 52) * box.width,
-    box.y + (next.y / 52) * box.width,
+    box.x + view.x + next.x * view.cell,
+    box.y + view.y + next.y * view.cell,
   );
   await page.mouse.up();
   await expect(page.locator("#clicks")).toHaveText("0");
@@ -196,8 +229,8 @@ test("przeciąganie i anulowanie gestu nie dodają odcinków", async ({
     "Przeciąganie nie dodaje",
   );
   await page.mouse.move(
-    box.x + (next.x / 52) * box.width,
-    box.y + (next.y / 52) * box.width,
+    box.x + view.x + next.x * view.cell,
+    box.y + view.y + next.y * view.cell,
   );
   await page.mouse.down();
   await page
@@ -215,9 +248,17 @@ test("kliknięcia uwzględniają powiększenie i przesunięcie", async ({
   await page.goto("./#PT1-oval-1-zoom");
   await expect(page.locator("canvas")).toBeVisible();
   await page.getByRole("button", { name: "Przybliż", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Przesuń w prawo", exact: true })
-    .click();
+  if (test.info().project.name === "chromium")
+    await page
+      .getByRole("button", { name: "Przesuń w prawo", exact: true })
+      .click();
+  else {
+    const box = (await page.locator("canvas").boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2);
+    await page.mouse.up();
+  }
   await nodeClick(page, track, track.start, 1.25, { x: -3, y: 0 });
   await nodeClick(page, track, solution.path[1], 1.25, { x: -3, y: 0 });
   await expect(page.locator("#score")).not.toHaveText("0");

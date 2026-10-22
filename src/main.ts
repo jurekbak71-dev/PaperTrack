@@ -3,6 +3,7 @@ import { SCORE_RULES } from "./game/scoring";
 import "./styles/main.css";
 import { type Kind, type Track } from "./generator";
 import { Game, STAR_THRESHOLDS, CRASH_PENALTY } from "./game";
+import { camera, nodeAt } from "./rendering/camera";
 import { render } from "./rendering";
 import { bindNodeClicks } from "./input";
 import { load, save, record, type Records, RECORDS_KEY } from "./storage";
@@ -17,6 +18,34 @@ let game: Game | undefined,
 let duel: Duel | undefined;
 let opponentTimer: ReturnType<typeof setTimeout> | null = null;
 let recorded = false;
+let mobileCell = 36,
+  viewMode: "follow" | "manual" | "overview" = "follow";
+const mobile = () =>
+  matchMedia("(pointer: coarse) and (max-width: 1200px)").matches;
+let offlineReady = location.protocol === "file:";
+let offlineError = false;
+function offlineText() {
+  if (offlineError)
+    return "Tryb offline niedostępny — sprawdź połączenie i odśwież stronę.";
+  return offlineReady
+    ? "Gotowa do gry offline"
+    : "Pobieranie gry do trybu offline…";
+}
+function offlineLabels() {
+  document
+    .querySelectorAll("[data-offline]")
+    .forEach((el) => (el.textContent = offlineText()));
+}
+function installGuide() {
+  document.querySelector("#install-guide")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "install-guide";
+  dialog.innerHTML = `<button id="close-install" class="close-guide">Zamknij</button><h2>Gra na iPhonie — instalacja</h2><ol><li>Otwórz <a href="https://jurekbak71-dev.github.io/PaperTrack/">Paper Track</a> w <b>Safari</b>. Jeśli jesteś w aplikacji ChatGPT, wybierz „Otwórz w Safari”.</li><li>Naciśnij <b>Udostępnij</b> — kwadrat ze strzałką w górę. Przycisk może być w menu Safari.</li><li>Wybierz <b>Do ekranu początkowego</b>, potem <b>Dodaj</b>. Jeśli pojawi się „Otwieraj jako aplikację”, pozostaw włączone.</li><li>Uruchom ikonę Paper Track przy włączonym internecie. Poczekaj na komunikat <b>„Gotowa do gry offline”</b>. Potem możesz grać bez internetu.</li><li>Obróć iPhone’a <b>poziomo</b>. Jeżeli ekran się nie obraca, wyłącz blokadę orientacji w Centrum sterowania.</li></ol><p data-offline role="status">${offlineText()}</p><p>Dotykaj kolejnych punktów. Przesuwaj kartkę palcem, aby oglądać dalszy fragment. „Twój punkt” przywraca kamerę, „Cały tor” pokazuje całą planszę. Nie potrzebujesz App Store ani pliku ZIP.</p>`;
+  document.body.append(dialog);
+  dialog.showModal();
+  dialog.querySelector("button")!.onclick = () => dialog.close();
+}
+
 function cancelOpponent() {
   if (opponentTimer !== null) clearTimeout(opponentTimer);
   opponentTimer = null;
@@ -34,6 +63,7 @@ const escape = (s: string) =>
       ]!,
   );
 function shell(content: string) {
+  document.body.classList.remove("playing");
   root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Niebieski kontra czerwony. Ruchy na zmianę. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
 }
 function button(id: string, fn: () => void) {
@@ -46,13 +76,14 @@ function menu() {
   cancelOpponent();
   duel = undefined;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie w kierunku strzałki.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button><button id="install">Jak zainstalować na iPhonie?</button></div><p data-offline role="status">${offlineText()}</p><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie w kierunku strzałki.</p></section>`,
   );
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
   button("campaign", campaignMenu);
   button("records", recordsMenu);
   button("settings", settings);
+  button("install", installGuide);
 }
 function randomMenu() {
   shell(
@@ -133,6 +164,8 @@ function start(kind: Kind, difficulty: number, seed: string, l = 0) {
   level = l;
   game = undefined;
   zoom = 1;
+  viewMode = "follow";
+  mobileCell = 36;
   pan = { x: 0, y: 0 };
   shell(
     '<h2>Rysuję tor…</h2><p role="status">Sprawdzam graf ruchów i obliczam najkrótszą trasę.</p><button id="menu">Menu</button>',
@@ -169,7 +202,18 @@ worker.onmessage = (event) => {
 };
 function draw() {
   const canvas = document.querySelector<HTMLCanvasElement>("canvas");
-  if (canvas && game)
+  if (canvas && game) {
+    if (mobile()) {
+      const rect = canvas.getBoundingClientRect();
+      zoom =
+        viewMode === "overview"
+          ? Math.min(1, rect.height / rect.width)
+          : (mobileCell * track.size) / rect.width;
+      if (viewMode === "follow") {
+        const p = track.nodes[game.last];
+        pan = { x: track.size / 2 - p.x, y: track.size / 2 - p.y };
+      }
+    }
     render(
       canvas,
       track,
@@ -188,11 +232,27 @@ function draw() {
           }
         : null,
     );
+  }
 }
 function screen() {
   shell(
-    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr.</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Dotrzyj do mety, zaczynając w kierunku strzałki." : "Pokonaj pełne okrążenie w kierunku strzałki."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz cofnąć się raz o jedną kratkę, potem musisz odejść nową ścieżką. Pętle są zabronione. Blokada jednej strony oznacza jej przegraną. Obie strony bez ruchu: PAT — remis. Obaj startujecie z tej samej kropki. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions game-menu"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button><button id="install">Instalacja / offline</button><button id="rules">Zasady</button><span data-offline class="offline-badge">${offlineText()}</span></div><div class="rotate-screen" role="status"><span class="rotate-icon">↻</span><h2>Obróć iPhone’a poziomo</h2><p>Większe kratki i wygodniejsza plansza.<br>Wyłącz blokadę orientacji w Centrum sterowania, jeśli ekran się nie obraca.</p><button id="rotate-install">Jak zainstalować grę offline?</button><button id="rotate-menu">Wróć do menu</button></div><span class="eyebrow track-info">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr.</span><div class="layout"><div class="board-panel"><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions view-controls"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Cały tor</button><button id="follow">Twój punkt</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Dotrzyj do mety, zaczynając w kierunku strzałki." : "Pokonaj pełne okrążenie w kierunku strzałki."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz cofnąć się raz o jedną kratkę, potem musisz odejść nową ścieżką. Pętle są zabronione. Blokada jednej strony oznacza jej przegraną. Obie strony bez ruchu: PAT — remis. Obaj startujecie z tej samej kropki. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions duel-actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small class="track-code" style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
+  document.body.classList.add("playing");
+  if (mobile())
+    document
+      .querySelector("aside")!
+      .prepend(document.querySelector("#match-result")!);
+  button("install", installGuide);
+  button("rotate-install", installGuide);
+  button("rotate-menu", menu);
+  button("rules", () => {
+    const dialog = document.createElement("dialog");
+    dialog.innerHTML = `<h2>Jak grać</h2><p>${document.querySelector("aside .note")!.textContent}</p><button>Zamknij</button>`;
+    document.body.append(dialog);
+    dialog.showModal();
+    dialog.querySelector("button")!.onclick = () => dialog.remove();
+  });
   button("menu", menu);
   button("undo", () => undo(1));
   button("undo5", () => undo(5));
@@ -200,16 +260,31 @@ function screen() {
   button("restart", reset);
   button("next", next);
   button("zoomin", () => {
-    zoom = Math.min(2.5, zoom + 0.25);
+    if (mobile()) {
+      mobileCell = Math.min(56, mobileCell + 4);
+      viewMode = "follow";
+    } else zoom = Math.min(2.5, zoom + 0.25);
     draw();
   });
   button("zoomout", () => {
-    zoom = Math.max(1, zoom - 0.25);
+    if (mobile()) {
+      mobileCell = Math.max(28, mobileCell - 4);
+      viewMode = "follow";
+    } else zoom = Math.max(1, zoom - 0.25);
     draw();
   });
   button("fit", () => {
+    viewMode = "overview";
     zoom = 1;
     pan = { x: 0, y: 0 };
+    draw();
+  });
+  button("follow", () => {
+    viewMode = "follow";
+    if (!mobile()) {
+      const p = track.nodes[game!.last];
+      pan = { x: 26 - p.x, y: 26 - p.y };
+    }
     draw();
   });
   for (const [id, x, y] of [
@@ -219,6 +294,7 @@ function screen() {
     ["down", 0, -3],
   ] as const)
     button(id, () => {
+      viewMode = "manual";
       pan.x = Math.max(-20, Math.min(20, pan.x + x));
       pan.y = Math.max(-20, Math.min(20, pan.y + y));
       draw();
@@ -236,20 +312,11 @@ function screen() {
   const canvas = document.querySelector("canvas")!;
   const point = (e: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
-    return {
-      x: Math.round(
-        (((e.clientX - r.left) / r.width) * track.size - track.size / 2) /
-          zoom +
-          track.size / 2 -
-          pan.x,
-      ),
-      y: Math.round(
-        (((e.clientY - r.top) / r.height) * track.size - track.size / 2) /
-          zoom +
-          track.size / 2 -
-          pan.y,
-      ),
-    };
+    return nodeAt(
+      e.clientX - r.left,
+      e.clientY - r.top,
+      camera(r.width, r.height, track.size, zoom, pan),
+    );
   };
   bindNodeClicks(
     canvas,
@@ -259,6 +326,8 @@ function screen() {
       const before = game.penaltyPoints;
       const result = duel.select(node);
       game = duel.player;
+      if (["move", "bounce", "start"].includes(result) && mobile())
+        viewMode = "follow";
       invalid = [
         "need-start",
         "direction",
@@ -293,7 +362,20 @@ function screen() {
         save(`penalties:${code}`, game.penaltyPoints);
       update();
     },
-    () => status("Klikaj pojedyncze punkty. Przeciąganie nie dodaje odcinków."),
+    () =>
+      status(
+        mobile()
+          ? "Kartka przesunięta. Dotknij punktu, aby wykonać ruch. Przeciąganie nie dodaje odcinków."
+          : "Klikaj pojedyncze punkty. Przeciąganie nie dodaje odcinków.",
+      ),
+    (dx, dy) => {
+      if (!mobile() || viewMode === "overview") return;
+      const cell = (canvas.getBoundingClientRect().width / track.size) * zoom;
+      viewMode = "manual";
+      pan.x = Math.max(-26, Math.min(26, pan.x + dx / cell));
+      pan.y = Math.max(-26, Math.min(26, pan.y + dy / cell));
+      draw();
+    },
   );
   draw();
 }
@@ -324,6 +406,7 @@ function update() {
   document.querySelector("#match-result")!.textContent = duel.winner
     ? `${duel.winner === "draw" ? (duel.pat ? "PAT — remis." : "Remis") : duel.winner === "player" ? "Wygrywasz!" : "Wygrywa przeciwnik."} ${duel.reason}. Ty: ${formatScore(game.score)}, AI: ${formatScore(duel.opponent.score)}.`
     : "";
+  if (duel.winner && mobile()) document.querySelector("aside")!.scrollTo(0, 0);
   document.querySelector("#score")!.textContent = formatScore(game.score);
   document.querySelector("#length-segments")!.textContent = formatScore(
     game.lengthSegments,
@@ -419,6 +502,7 @@ function undo(n: number) {
   update();
 }
 function reset() {
+  viewMode = "follow";
   cancelOpponent();
   duel?.clear();
   game = duel?.player;
@@ -433,12 +517,21 @@ function next() {
   else start(track.kind, track.difficulty, String(Date.now()));
 }
 window.addEventListener("resize", draw);
+window.visualViewport?.addEventListener("resize", draw);
 if (import.meta.env.PROD && "serviceWorker" in navigator)
-  window.addEventListener("load", () =>
+  window.addEventListener("load", () => {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
-      .catch(() => {}),
-  );
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => {
+        offlineReady = true;
+        offlineLabels();
+      })
+      .catch(() => {
+        offlineError = true;
+        offlineLabels();
+      });
+  });
 try {
   const match = /^PT1-(oval|circuit|rally)-(10|[1-9])-(.+)$/.exec(
     location.hash.slice(1),

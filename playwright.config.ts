@@ -23,6 +23,7 @@ export default defineConfig({
       name: "iphone",
       use: {
         ...devices["iPhone 13"],
+        viewport: { width: 844, height: 390 },
         defaultBrowserType: process.env.SYSTEM_CHROMIUM ? "chromium" : "webkit",
         launchOptions: process.env.SYSTEM_CHROMIUM
           ? { executablePath: "/usr/bin/chromium", args: ["--no-sandbox"] }
@@ -33,6 +34,7 @@ export default defineConfig({
       name: "ipad",
       use: {
         ...devices["iPad (gen 7)"],
+        viewport: { width: 1024, height: 768 },
         defaultBrowserType: process.env.SYSTEM_CHROMIUM ? "chromium" : "webkit",
         launchOptions: process.env.SYSTEM_CHROMIUM
           ? { executablePath: "/usr/bin/chromium", args: ["--no-sandbox"] }

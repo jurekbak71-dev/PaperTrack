@@ -1,3 +1,4 @@
+import { camera } from "./camera";
 import type { Track } from "../generator";
 import { inside, boundaryContact } from "../geometry";
 export function render(
@@ -18,13 +19,14 @@ export function render(
   canvas.height = rect.height * dpr;
   const c = canvas.getContext("2d")!;
   c.scale(dpr, dpr);
-  const scale = rect.width / t.size;
-  c.scale(scale, scale);
   c.fillStyle = "#fcf8eb";
-  c.fillRect(0, 0, t.size, t.size);
-  c.translate(t.size / 2, t.size / 2);
-  c.scale(zoom, zoom);
-  c.translate(-t.size / 2 + pan.x, -t.size / 2 + pan.y);
+  c.fillRect(0, 0, rect.width, rect.height);
+  const view = camera(rect.width, rect.height, t.size, zoom, pan);
+  canvas.dataset.cell = String(view.cell);
+  canvas.dataset.originX = String(view.x);
+  canvas.dataset.originY = String(view.y);
+  c.translate(view.x, view.y);
+  c.scale(view.cell, view.cell);
   const poly = (p: { x: number; y: number }[]) => {
     c.moveTo(p[0].x, p[0].y);
     p.slice(1).forEach((p) => c.lineTo(p.x, p.y));

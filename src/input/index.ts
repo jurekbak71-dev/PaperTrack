@@ -6,6 +6,7 @@ export function bindNodeClicks(
   point: (event: PointerEvent) => Point,
   select: (node: Point) => void,
   dragged: () => void,
+  pan?: (dx: number, dy: number) => void,
 ) {
   let pending: {
     id: number;
@@ -13,6 +14,8 @@ export function bindNodeClicks(
     x: number;
     y: number;
     moved: boolean;
+    lastX: number;
+    lastY: number;
   } | null = null;
   canvas.onpointerdown = (event) => {
     if (!event.isPrimary || event.button !== 0 || pending) return;
@@ -22,6 +25,8 @@ export function bindNodeClicks(
       x: event.clientX,
       y: event.clientY,
       moved: false,
+      lastX: event.clientX,
+      lastY: event.clientY,
     };
     canvas.setPointerCapture(event.pointerId);
     event.preventDefault();
@@ -30,6 +35,11 @@ export function bindNodeClicks(
     if (!pending || pending.id !== event.pointerId) return;
     if (Math.hypot(event.clientX - pending.x, event.clientY - pending.y) > 8)
       pending.moved = true;
+    if (pending.moved) {
+      pan?.(event.clientX - pending.lastX, event.clientY - pending.lastY);
+      pending.lastX = event.clientX;
+      pending.lastY = event.clientY;
+    }
   };
   canvas.onpointerup = (event) => {
     if (!pending || pending.id !== event.pointerId) return;
