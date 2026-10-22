@@ -4,7 +4,8 @@ import { samePoint, segmentIntersection, type Point } from "../geometry";
 import { random, type Track } from "../generator";
 export const ILLEGAL_PENALTY = 1;
 export type Side = "player" | "opponent";
-export type Winner = Side | "draw" | null;
+export type GameMode = "solo" | "duel";
+export type Winner = Side | "draw" | "defeat" | null;
 type Reverse = { x: number; y: number; limit: number };
 type Snapshot = {
   player: Game;
@@ -44,6 +45,7 @@ export class Duel {
     public track: Track,
     penaltyPoints = 0,
     redTrack = opponentTrack(track),
+    public mode: GameMode = "duel",
   ) {
     this.player = new Game(track, penaltyPoints);
     this.opponent = new Game(redTrack);
@@ -107,6 +109,7 @@ export class Duel {
         continue;
       return "crossing";
     }
+    if (this.mode === "solo") return "ok";
     const redSegments =
       other.path.length === 1
         ? [[other.path[0], other.path[0]]]
@@ -214,7 +217,7 @@ export class Duel {
       this.mustBranch.player = !!candidate.retreat;
       this.moves++;
       if (this.player.crashed) {
-        this.winner = "opponent";
+        this.winner = this.mode === "solo" ? "defeat" : "opponent";
         this.reason = "Wypadek gracza";
       } else this.next("player");
     }
@@ -231,6 +234,20 @@ export class Duel {
     return candidate.result;
   }
   private next(side: Side) {
+    if (this.mode === "solo") {
+      this.turn = "player";
+      if (this.player.done) {
+        this.winner = "player";
+        this.reason = "Tor ukończony";
+        return;
+      }
+      if (this.resolveBlockage("player")) return;
+      if (this.moves > this.track.nodes.length * 6) {
+        this.winner = "defeat";
+        this.reason = "Przekroczony limit tur";
+      }
+      return;
+    }
     if (this.player.done && this.opponent.done) {
       this.winner =
         Math.abs(this.player.score - this.opponent.score) < 1e-9
@@ -261,6 +278,12 @@ export class Duel {
   /** Resolve simultaneous immobility before assigning a loss by turn order.
    * A finisher is not a blocked racer and cannot cause a false PAT. */
   private resolveBlockage(side: Side) {
+    if (this.mode === "solo") {
+      if (this.player.done || this.unitMoves("player").length) return false;
+      this.winner = "defeat";
+      this.reason = "Brak ruchu bez zapętlenia";
+      return true;
+    }
     const blocked = {
       player: !this.player.done && !this.unitMoves("player").length,
       opponent: !this.opponent.done && !this.unitMoves("opponent").length,
@@ -419,6 +442,7 @@ export class Duel {
   }
   playOpponent(): DuelResult {
     if (this.winner) return "finished";
+    if (this.mode === "solo") return "turn";
     if (this.turn !== "opponent") return "turn";
     const options = this.unitMoves("opponent");
     if (!options.length) {

@@ -1,4 +1,4 @@
-import { Duel, ILLEGAL_PENALTY } from "./game/duel";
+import { Duel, ILLEGAL_PENALTY, type GameMode } from "./game/duel";
 import { SCORE_RULES } from "./game/scoring";
 import "./styles/main.css";
 import { type Kind, type Track } from "./generator";
@@ -18,6 +18,33 @@ let game: Game | undefined,
 let duel: Duel | undefined;
 let opponentTimer: ReturnType<typeof setTimeout> | null = null;
 let recorded = false;
+const requestedMode =
+  new URLSearchParams(location.search).get("mode") ??
+  load<string>("gameMode", "duel");
+let selectedMode: GameMode = requestedMode === "solo" ? "solo" : "duel";
+function modeChoice() {
+  return `<label>Tryb gry<select id="game-mode"><option value="solo" ${selectedMode === "solo" ? "selected" : ""}>Gra solo</option><option value="duel" ${selectedMode === "duel" ? "selected" : ""}>Z wirtualnym przeciwnikiem</option></select></label>`;
+}
+function bindMode(refresh?: () => void) {
+  document
+    .querySelector<HTMLSelectElement>("#game-mode")
+    ?.addEventListener("change", (e) => {
+      selectedMode = (e.target as HTMLSelectElement).value as GameMode;
+      save("gameMode", selectedMode);
+      const url = new URL(location.href);
+      url.searchParams.set("mode", selectedMode);
+      history.replaceState(null, "", url);
+      refresh?.();
+    });
+}
+function recordKey() {
+  const key = level ? `level-${level}` : code;
+  return duel?.mode === "solo" ? `solo:${key}` : key;
+}
+function penaltyKey() {
+  return `penalties:${duel?.mode === "solo" ? "solo:" : ""}${code}`;
+}
+
 let mobileCell = 36,
   viewMode: "follow" | "manual" | "overview" = "follow";
 const mobile = () =>
@@ -63,8 +90,8 @@ const escape = (s: string) =>
       ]!,
   );
 function shell(content: string) {
-  document.body.classList.remove("playing");
-  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Niebieski kontra czerwony. Ruchy na zmianę. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
+  document.body.classList.remove("playing", "solo-game");
+  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Graj solo lub z wirtualnym przeciwnikiem. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
 }
 function button(id: string, fn: () => void) {
   document.getElementById(id)?.addEventListener("click", fn);
@@ -76,8 +103,9 @@ function menu() {
   cancelOpponent();
   duel = undefined;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button><button id="install">Jak zainstalować na iPhonie?</button></div><p data-offline role="status">${offlineText()}</p><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie w kierunku strzałki.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Sam lub przeciw AI.<br>Wyznacz swoją trasę.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Wybierz grę solo i poprawiaj rekord albo graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć. Wyższy iloraz długości do kliknięć jest lepszy.</p>${modeChoice()}<div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button><button id="install">Jak zainstalować na iPhonie?</button></div><p data-offline role="status">${offlineText()}</p><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Większy wynik jest lepszy. Na torze zamkniętym pokonaj pełne okrążenie w kierunku strzałki.</p></section>`,
   );
+  bindMode();
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
   button("campaign", campaignMenu);
@@ -87,7 +115,7 @@ function menu() {
 }
 function randomMenu() {
   shell(
-    `<h2>Nowy arkusz</h2><label>Rodzaj toru<select id="kind"><option value="oval">Żużlowy</option><option value="circuit">Samochodowy</option><option value="rally">Rajdowy</option></select></label><label>Trudność<select id="difficulty">${Array.from(
+    `<h2>Nowy arkusz</h2>${modeChoice()}<label>Rodzaj toru<select id="kind"><option value="oval">Żużlowy</option><option value="circuit">Samochodowy</option><option value="rally">Rajdowy</option></select></label><label>Trudność<select id="difficulty">${Array.from(
       { length: 10 },
       (_, i) => i + 1,
     )
@@ -97,6 +125,7 @@ function randomMenu() {
       )}</select></label><label>Kod identycznej planszy (opcjonalnie)<input id="seed" maxlength="120" placeholder="PT1-…"></label><div class="actions"><button id="generate" class="primary">Generuj tor</button><button id="menu">Menu</button></div><p id="error" role="alert"></p>`,
   );
   button("menu", menu);
+  bindMode();
   button("generate", () => {
     const input = (
       document.querySelector("#seed") as HTMLInputElement
@@ -121,8 +150,9 @@ function randomMenu() {
 function campaignMenu() {
   const records = load<Records>(RECORDS_KEY, {});
   shell(
-    `<h2>Kampania · 100 kartek</h2><p>Każdy poziom ma stały seed. 10 stopni trudności, po 10 poziomów. Coraz węższe tory, więcej zakrętów i przeszkód oraz silniejsze AI. Trudność 10: szerokość najwyżej 2 kratki i ruchy wyłącznie po przekątnych.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
+    `<h2>Kampania · 100 kartek</h2>${modeChoice()}<p>Każdy poziom ma stały seed. 10 stopni trudności, po 10 poziomów. Coraz węższe tory, więcej zakrętów i przeszkód oraz silniejsze AI. Trudność 10: szerokość najwyżej 2 kratki i ruchy wyłącznie po przekątnych.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`${selectedMode === "solo" ? "solo:" : ""}level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
   );
+  bindMode(campaignMenu);
   root
     .querySelectorAll<HTMLButtonElement>("[data-level]")
     .forEach(
@@ -194,8 +224,12 @@ worker.onmessage = (event) => {
   code = `PT1-${track.kind}-${track.difficulty}-${encodeURIComponent(track.seed)}`;
   duel = new Duel(
     track,
-    load<number>(`penalties:${code}`, 0),
+    load<number>(
+      `penalties:${selectedMode === "solo" ? "solo:" : ""}${code}`,
+      0,
+    ),
     event.data.redTrack,
+    selectedMode,
   );
   game = duel.player;
   screen();
@@ -224,7 +258,7 @@ function draw() {
       load("largeInk", false),
       game.started,
       game.crashPoint,
-      duel
+      duel?.mode === "duel"
         ? {
             path: duel.opponent.path,
             start: duel.opponent.track.start,
@@ -236,9 +270,10 @@ function draw() {
 }
 function screen() {
   shell(
-    `<div class="actions game-menu"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button><button id="install">Instalacja / offline</button><button id="rules">Zasady</button><span data-offline class="offline-badge">${offlineText()}</span></div><div class="rotate-screen" role="status"><span class="rotate-icon">↻</span><h2>Obróć iPhone’a poziomo</h2><p>Większe kratki i wygodniejsza plansza.<br>Wyłącz blokadę orientacji w Centrum sterowania, jeśli ekran się nie obraca.</p><button id="rotate-install">Jak zainstalować grę offline?</button><button id="rotate-menu">Wróć do menu</button></div><span class="eyebrow track-info">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr.</span><div class="layout"><div class="board-panel"><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions view-controls"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Cały tor</button><button id="follow">Twój punkt</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Dotrzyj do mety, zaczynając w kierunku strzałki." : "Pokonaj pełne okrążenie w kierunku strzałki."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz cofnąć się raz o jedną kratkę, potem musisz odejść nową ścieżką. Pętle są zabronione. Blokada jednej strony oznacza jej przegraną. Obie strony bez ruchu: PAT — remis. Obaj startujecie z tej samej kropki. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions duel-actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small class="track-code" style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions game-menu"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button><button id="install">Instalacja / offline</button><button id="rules">Zasady</button><span data-offline class="offline-badge">${offlineText()}</span></div><div class="rotate-screen" role="status"><span class="rotate-icon">↻</span><h2>Obróć iPhone’a poziomo</h2><p>Większe kratki i wygodniejsza plansza.<br>Wyłącz blokadę orientacji w Centrum sterowania, jeśli ekran się nie obraca.</p><button id="rotate-install">Jak zainstalować grę offline?</button><button id="rotate-menu">Wróć do menu</button></div><span class="eyebrow track-info">${duel!.mode === "solo" ? "Gra solo" : "Pojedynek z AI"} · ${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr.</span><div class="layout"><div class="board-panel"><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions view-controls"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Cały tor</button><button id="follow">Twój punkt</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">${duel!.mode === "solo" ? "Gra solo — niebieski" : "● Ty — niebieski"}</b>${duel!.mode === "duel" ? ' · <b style="color:#c33131">● AI — czerwony</b>' : ""}</p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p class="opponent-stat" style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Dotrzyj do mety, zaczynając w kierunku strzałki." : "Pokonaj pełne okrążenie w kierunku strzałki."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. ${duel!.mode === "duel" ? "Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu przeciwnika wymusza powrót o jedną kratkę." : "Gra solo: rysujesz sam. Własna linia nie może się przecinać."} Możesz cofnąć się raz o jedną kratkę, potem musisz odejść nową ścieżką. Pętle są zabronione. ${duel!.mode === "duel" ? "Blokada jednej strony oznacza jej przegraną. Obie strony bez ruchu: PAT — remis. Obaj startujecie z tej samej kropki." : "Brak ruchu bez zapętlenia kończy próbę porażką. Ukończ tor i poprawiaj swój rekord."} Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt${duel!.mode === "duel" ? " i utrata tury" : ""}. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions duel-actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small class="track-code" style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
   document.body.classList.add("playing");
+  document.body.classList.toggle("solo-game", duel!.mode === "solo");
   if (mobile())
     document
       .querySelector("aside")!
@@ -302,6 +337,7 @@ function screen() {
   button("share", () => {
     const url = new URL(location.href);
     url.hash = code;
+    url.searchParams.set("mode", duel!.mode);
     if (navigator.clipboard)
       navigator.clipboard
         .writeText(url.href)
@@ -357,9 +393,14 @@ function screen() {
         crash: `Wypadek! Dotknięcie bandy: −${CRASH_PENALTY} pkt. Rozpocznij ponowną próbę.`,
         crashed: "Próba zakończyła się wypadkiem. Kliknij Restart.",
       };
-      status(messages[result]);
-      if (game.penaltyPoints !== before)
-        save(`penalties:${code}`, game.penaltyPoints);
+      status(
+        duel.mode === "solo"
+          ? messages[result]
+              .replaceAll(" i utrata tury", "")
+              .replace("Pojedynek zakończony", "Próba zakończona")
+          : messages[result],
+      );
+      if (game.penaltyPoints !== before) save(penaltyKey(), game.penaltyPoints);
       update();
     },
     () =>
@@ -399,13 +440,20 @@ function update() {
     duel.opponent.clicks,
   );
   document.querySelector("#turn")!.textContent = duel.winner
-    ? "Pojedynek zakończony"
+    ? duel.mode === "solo"
+      ? "Próba zakończona"
+      : "Pojedynek zakończony"
     : duel.turn === "player"
       ? "Twoja tura — niebieski"
       : "Tura przeciwnika — czerwony";
-  document.querySelector("#match-result")!.textContent = duel.winner
-    ? `${duel.winner === "draw" ? (duel.pat ? "PAT — remis." : "Remis") : duel.winner === "player" ? "Wygrywasz!" : "Wygrywa przeciwnik."} ${duel.reason}. Ty: ${formatScore(game.score)}, AI: ${formatScore(duel.opponent.score)}.`
-    : "";
+  document.querySelector("#match-result")!.textContent =
+    duel.mode === "solo"
+      ? duel.winner
+        ? `${duel.winner === "player" ? "Tor ukończony!" : "Próba zakończona."} ${duel.reason}. Wynik: ${formatScore(game.score)}.`
+        : ""
+      : duel.winner
+        ? `${duel.winner === "draw" ? (duel.pat ? "PAT — remis." : "Remis") : duel.winner === "player" ? "Wygrywasz!" : "Wygrywa przeciwnik."} ${duel.reason}. Ty: ${formatScore(game.score)}, AI: ${formatScore(duel.opponent.score)}.`
+        : "";
   if (duel.winner && mobile()) document.querySelector("aside")!.scrollTo(0, 0);
   document.querySelector("#score")!.textContent = formatScore(game.score);
   document.querySelector("#length-segments")!.textContent = formatScore(
@@ -429,7 +477,7 @@ function update() {
           : ratio >= STAR_THRESHOLDS[0] - 1e-9
             ? 2
             : 1;
-    const key = level ? `level-${level}` : code;
+    const key = recordKey();
     const saved =
       recorded ||
       record(key, {
@@ -452,6 +500,7 @@ function update() {
 function scheduleOpponent() {
   if (
     !duel ||
+    duel.mode === "solo" ||
     duel.winner ||
     duel.turn !== "opponent" ||
     opponentTimer !== null

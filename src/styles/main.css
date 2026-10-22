@@ -438,3 +438,7 @@ dialog::backdrop {
     display: none;
   }
 }
+
+.solo-game .opponent-stat {
+  display: none;
+}

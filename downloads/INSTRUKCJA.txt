@@ -1,7 +1,7 @@
-PAPER TRACK — POJEDYNEK, ILORAZ = DŁUGOŚĆ ÷ KLIKNIĘCIA
+PAPER TRACK — SOLO LUB POJEDYNEK, ILORAZ = DŁUGOŚĆ ÷ KLIKNIĘCIA
 
 1. Otwórz PaperTrack.html dwuklikiem w Chrome lub Edge.
-2. Wybierz Nowa gra albo Kampania.
+2. Wybierz tryb: Gra solo albo Z wirtualnym przeciwnikiem, potem Nowa gra albo Kampania. W solo rysujesz sam, a meta od razu kończy próbę; rekordy i kary są osobne dla obu trybów.
 3. Kliknij niebieski punkt START. Ty jesteś niebieski, wirtualny przeciwnik czerwony. Ruchy są naprzemienne. Startujecie z tej samej kropki; jedna strzałka obok toru wskazuje kierunek startu.
 4. Kliknij koniec odcinka: pionowo lub poziomo na dowolną liczbę kratek; po przekątnej tylko o jedną kratkę.
 5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości ÷ kliknięcia rysujące odcinki. START nie jest liczony. Największy wynik wygrywa.

@@ -106,3 +106,7 @@ Generowanie działa w Web Workerze. AI uruchamia się tylko podczas swojej tury.
 Manifest, ikony 192/512 px, service worker i cache umożliwiają instalację i grę offline po pierwszym pełnym wczytaniu. Układ obsługuje safe areas, orientacje i kwadratową siatkę. Fizycznych urządzeń iOS nie testowano.
 
 Workflow `.github/workflows/pages.yml` uruchamia instalację, lint, testy, build, E2E i publikację `dist`. W GitHub wymagane jest **Settings → Pages → Source → GitHub Actions**. Sukces buildu nie dowodzi publikacji; potwierdza ją job `deploy`. Pull requesty nie publikują.
+
+## Gra solo i pojedynek
+
+W menu, przy losowaniu i w kampanii wybierz **Gra solo** albo **Z wirtualnym przeciwnikiem**. W solo wykonujesz kolejne ruchy bez oczekiwania na AI; dotarcie do mety od razu kończy próbę. Zasady własnej linii, kar, cofania i zapętlenia pozostają aktywne. W pojedynku obowiązują naprzemienne tury i czerwony przeciwnik. Rekordy, gwiazdki kampanii oraz kary są przechowywane osobno dla obu trybów. Udostępniony link zawiera tryb rozgrywki; ostatni wybór jest zapamiętywany lokalnie.

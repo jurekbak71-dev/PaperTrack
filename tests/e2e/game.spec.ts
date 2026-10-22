@@ -207,13 +207,11 @@ test("przeciąganie i anulowanie gestu nie dodają odcinków", async ({
   await expect(page.locator("canvas")).toBeVisible();
   await pointClick(page, start);
   const box = (await page.locator("canvas").boundingBox())!;
-  const view = await page
-    .locator("canvas")
-    .evaluate((el) => ({
-      cell: Number(el.dataset.cell),
-      x: Number(el.dataset.originX),
-      y: Number(el.dataset.originY),
-    }));
+  const view = await page.locator("canvas").evaluate((el) => ({
+    cell: Number(el.dataset.cell),
+    x: Number(el.dataset.originX),
+    y: Number(el.dataset.originY),
+  }));
   await page.mouse.move(
     box.x + view.x + start.x * view.cell,
     box.y + view.y + start.y * view.cell,
@@ -374,4 +372,31 @@ test("obustronna blokada pokazuje PAT i zatrzymuje ruchy AI", async ({
   await expect(page.locator("#opponent-clicks")).toHaveText("0");
   await page.getByRole("button", { name: "Restart", exact: true }).click();
   await expect(page.locator("#match-result")).toHaveText("");
+});
+
+test("wybór solo: samodzielna gra, wynik bez AI i osobny rekord", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.locator("#game-mode").selectOption("solo");
+  await page.locator("#random").click();
+  await expect(page.locator("#game-mode")).toHaveValue("solo");
+  await page.locator("#seed").fill("PT1-rally-1-duel-e2e");
+  await page.locator("#generate").click();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator(".players")).toHaveText("Gra solo — niebieski");
+  await expect(page.locator(".opponent-stat")).toBeHidden();
+  const t = generate("duel-e2e", "rally", 1);
+  await nodeClick(page, t, t.start);
+  await nodeClick(page, t, t.finish);
+  await expect(page.locator("#match-result")).toContainText("Tor ukończony!");
+  await expect(page.locator("#clicks")).toHaveText("1");
+  await expect(page.locator("#opponent-clicks")).toHaveText("0");
+  await page.locator("#menu").click();
+  await expect(page.locator("#game-mode")).toHaveValue("solo");
+  await page.locator("#campaign").click();
+  await expect(page.locator("#game-mode")).toHaveValue("solo");
+  await page.locator("#game-mode").selectOption("duel");
+  await page.reload();
+  await expect(page.locator("#game-mode")).toHaveValue("duel");
 });

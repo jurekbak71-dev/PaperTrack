@@ -114,3 +114,11 @@ Dodano dostępną z menu, gry i nakładki obrotu instrukcję: Safari → Udostę
 Końcowy eksport HTML sprawdzono offline przez `file://`: pełny pojedynek i instrukcja instalacji przeszły w desktop Chromium oraz WebKit z profilem iPhone’a w poziomie. Wariant mobilny zachowuje kratkę 36 px, a po wybraniu „Cały tor” umożliwia długą prostą do mety. Brak błędów JavaScript. ZIP zawiera ten sam HTML i aktualne źródła.
 
 Końcowe doprecyzowanie proporcji mobilnego Canvas: obrys CSS zamiast obramowania zapobiega ułamkowemu ściskaniu różnych osi prostokątnego bitmapowego pola. Dodano sprawdzenie, że rozmiar treści odpowiada wymiarowi viewportu Canvas. Ponowne testy mobilne: 5 przeszło, 1 scenariusz telefonu nieadekwatny dla desktopu, 12 s.
+
+## Wybór solo / przeciwnik
+
+Dodano selektor w menu, losowaniu i kampanii. Solo pomija AI i jego linię, zachowując własną legalność, kary i blokadę; meta natychmiast kończy próbę. Rekordy, gwiazdki i kary mają osobną przestrzeń kluczy. Wybór zapisuje się lokalnie i w udostępnianym URL.
+
+ESLint/TypeScript oraz build poprawne. Jednostkowe testy pojedynku i solo: 24/24. Dotychczasowe scenariusze E2E: 38 poprawnych, jeden przypadek orientacji nieadekwatny do desktopu. Nowy scenariusz solo początkowo błędnie używał nawigacji tylko do hasha bez przeładowania — zastąpiono ją rzeczywistym wpisaniem kodu w formularzu. Ponowiony scenariusz przeszedł we wszystkich trzech profilach: Chromium, iPhone WebKit, iPad WebKit. Fizycznego iPhone’a/iPada nie testowano.
+
+Runner CI przypięto do Ubuntu 24.04 zamiast zmiennego ubuntu-latest po dwukrotnym zawieszeniu instalacji zależności przeglądarek. Wszystkie testy pozostają w workflow.

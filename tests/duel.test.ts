@@ -440,3 +440,32 @@ it("AI wybiera nową ścieżkę zamiast dobrowolnego cofnięcia, gdy nie ma peł
   expect(g.track.nodes[m.opponent.last]).toEqual({ x: 6, y: 5 });
   expect(m.mustBranch.opponent).toBe(false);
 });
+
+it("solo: kolejne ruchy gracza, brak tur AI i natychmiastowy wynik na mecie", () => {
+  const t = arena(),
+    m = new Duel(t, 0, undefined, "solo");
+  expect(m.select({ x: 2, y: 2 })).toBe("start");
+  expect(m.select({ x: 5, y: 2 })).toBe("move");
+  expect(m.turn).toBe("player");
+  expect(m.playOpponent()).toBe("turn");
+  expect(m.opponent.clicks).toBe(0);
+  expect(m.select({ x: 10, y: 2 })).toBe("move");
+  expect(m.winner).toBe("player");
+  expect(m.player.score).toBe(4);
+  expect(m.player.clicks).toBe(2);
+});
+it("solo: wypadek to porażka, a cofnięcie przywraca próbę bez AI", () => {
+  const m = new Duel(arena(), 0, undefined, "solo");
+  m.select({ x: 2, y: 2 });
+  expect(m.select({ x: 0, y: 2 })).toBe("crash");
+  expect(m.winner).toBe("defeat");
+  expect(m.pat).toBe(false);
+  m.clear();
+  expect(m.mode).toBe("solo");
+  expect(m.winner).toBeNull();
+  m.select({ x: 2, y: 2 });
+  m.select({ x: 5, y: 2 });
+  m.undo();
+  expect(m.player.clicks).toBe(0);
+  expect(m.opponent.clicks).toBe(0);
+});
