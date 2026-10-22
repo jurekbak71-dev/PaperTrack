@@ -1,10 +1,10 @@
 import { generate, campaign } from "./index";
-import { solve } from "../solver";
+import { solveScore } from "../solver";
 self.onmessage = (event: MessageEvent) => {
   const { seed, kind, difficulty, level, requestId } = event.data;
   try {
     const track = level ? campaign(level) : generate(seed, kind, difficulty);
-    const solution = solve(track);
+    const solution = solveScore(track);
     self.postMessage({ track, solution, requestId });
   } catch (error) {
     self.postMessage({ error: String(error), requestId });

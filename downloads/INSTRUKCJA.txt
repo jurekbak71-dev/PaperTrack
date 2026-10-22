@@ -1,10 +1,11 @@
-PAPER TRACK — STEROWANIE KLIKNIĘCIAMI
+PAPER TRACK — DŁUGIE PROSTE I WYNIK = DŁUGOŚĆ × KLIKNIĘCIA
 
 1. Otwórz PaperTrack.html dwuklikiem w Chrome lub Edge.
 2. Wybierz Nowa gra albo Kampania.
 3. Kliknij czerwony punkt START.
-4. Kliknij sąsiedni podświetlony punkt: prosto albo po przekątnej. Powstanie jeden odcinek.
-5. Klikaj następne sąsiednie punkty. Jeden klik = jedna kratka. Dalsze punkty są odrzucane.
+4. Kliknij koniec odcinka: pionowo lub poziomo na dowolną liczbę kratek; po przekątnej tylko o jedną kratkę.
+5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości × kliknięcia rysujące odcinki. START nie jest liczony. Najmniejszy wynik wygrywa.
+6. Nie ma podpowiedzi. Dotknięcie bandy kończy próbę i daje -5 pkt kary; kara pozostaje po restarcie.
 
 Nie przeciągaj myszy. Na telefonie dotykaj kolejnych punktów. Przyciskiem + powiększysz planszę.
 Cofnij usuwa ostatni odcinek, Cofnij 5 usuwa kilka, Restart rozpoczyna próbę od nowa.

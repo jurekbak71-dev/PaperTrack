@@ -51,3 +51,55 @@ export function segmentIn(a: Point, b: Point, outer: Point[], hole: Point[]) {
     valid(0) && valid(1) && ts.slice(1).every((t, i) => valid((t + ts[i]) / 2))
   );
 }
+
+/** Earliest boundary contact, including a tangent, an endpoint and collinear overlap. */
+export function boundaryContact(
+  a: Point,
+  b: Point,
+  polygons: Point[][],
+): Point | null {
+  const d = sub(b, a),
+    squared = d.x * d.x + d.y * d.y;
+  let first = Infinity;
+  for (const polygon of polygons)
+    for (let i = 0; i < polygon.length; i++) {
+      const p = polygon[i],
+        q = polygon[(i + 1) % polygon.length],
+        e = sub(q, p),
+        den = cross(d, e);
+      if (squared < 1e-16) {
+        if (
+          Math.abs(cross(sub(a, p), e)) < 1e-8 &&
+          a.x >= Math.min(p.x, q.x) - 1e-8 &&
+          a.x <= Math.max(p.x, q.x) + 1e-8 &&
+          a.y >= Math.min(p.y, q.y) - 1e-8 &&
+          a.y <= Math.max(p.y, q.y) + 1e-8
+        )
+          first = 0;
+      } else if (Math.abs(den) > 1e-10) {
+        const t = cross(sub(p, a), e) / den,
+          u = cross(sub(p, a), d) / den;
+        if (t >= -1e-8 && t <= 1 + 1e-8 && u >= -1e-8 && u <= 1 + 1e-8)
+          first = Math.min(first, Math.max(0, Math.min(1, t)));
+      } else if (Math.abs(cross(sub(p, a), d)) < 1e-8) {
+        const t1 = ((p.x - a.x) * d.x + (p.y - a.y) * d.y) / squared,
+          t2 = ((q.x - a.x) * d.x + (q.y - a.y) * d.y) / squared;
+        if (Math.max(t1, t2) >= -1e-8 && Math.min(t1, t2) <= 1 + 1e-8)
+          first = Math.min(first, Math.max(0, Math.min(t1, t2)));
+      }
+    }
+  return Number.isFinite(first)
+    ? { x: a.x + first * d.x, y: a.y + first * d.y }
+    : null;
+}
+export function segmentClear(
+  a: Point,
+  b: Point,
+  outer: Point[],
+  hole: Point[],
+) {
+  return (
+    segmentIn(a, b, outer, hole) &&
+    boundaryContact(a, b, [outer, hole]) === null
+  );
+}

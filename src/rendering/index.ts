@@ -3,13 +3,12 @@ export function render(
   canvas: HTMLCanvasElement,
   t: Track,
   path: number[],
-  solution: number[],
   invalid: boolean,
   zoom: number,
   pan = { x: 0, y: 0 },
   contrast = false,
-  choices: number[] = [],
   started = false,
+  crashPoint: { x: number; y: number } | null = null,
 ) {
   const rect = canvas.getBoundingClientRect(),
     dpr = Math.min(devicePixelRatio || 1, 3);
@@ -77,7 +76,6 @@ export function render(
     c.stroke();
     c.setLineDash([]);
   };
-  line(solution, "#29977d", [0.35, 0.3]);
   line(path, invalid ? "#be4540" : "#173d8a", []);
   for (const [id, label] of t.kind === "rally"
     ? ([
@@ -94,17 +92,6 @@ export function render(
     c.fillStyle = "#243f75";
     c.fillText(label, p.x - 2, p.y - 1);
   }
-  // Show every currently legal neighbour, never the hidden optimal route.
-  for (const id of choices) {
-    const next = t.nodes[id];
-    c.beginPath();
-    c.arc(next.x, next.y, 0.23, 0, Math.PI * 2);
-    c.fillStyle = "#fffdf3";
-    c.fill();
-    c.strokeStyle = "#267c72";
-    c.lineWidth = 0.1;
-    c.stroke();
-  }
   const p = t.nodes[path.at(-1) ?? t.start];
   c.beginPath();
   c.arc(p.x, p.y, started ? 0.28 : 0.42, 0, 7);
@@ -115,4 +102,18 @@ export function render(
   c.strokeStyle = started ? "#173d8a" : "#be4540";
   c.lineWidth = 0.08;
   c.stroke();
+  if (crashPoint) {
+    c.beginPath();
+    c.moveTo(p.x, p.y);
+    c.lineTo(crashPoint.x, crashPoint.y);
+    c.strokeStyle = "#c33131";
+    c.lineWidth = 0.25;
+    c.stroke();
+    c.beginPath();
+    c.moveTo(crashPoint.x - 0.45, crashPoint.y - 0.45);
+    c.lineTo(crashPoint.x + 0.45, crashPoint.y + 0.45);
+    c.moveTo(crashPoint.x + 0.45, crashPoint.y - 0.45);
+    c.lineTo(crashPoint.x - 0.45, crashPoint.y + 0.45);
+    c.stroke();
+  }
 }

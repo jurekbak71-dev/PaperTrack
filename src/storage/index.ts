@@ -1,6 +1,13 @@
 export type Records = Record<
   string,
-  { length: number; stars: number; level: number }
+  {
+    score: number;
+    lengthSegments: number;
+    clicks: number;
+    stars: number;
+    level: number;
+    penaltyPoints: number;
+  }
 >;
 export function load<T>(key: string, fallback: T): T {
   try {
@@ -17,9 +24,15 @@ export function save(key: string, value: unknown) {
     return false;
   }
 }
-export function record(code: string, length: number, stars: number, level = 0) {
-  const records = load<Records>("records", {});
-  if (!records[code] || length < records[code].length)
-    records[code] = { length, stars, level };
-  return save("records", records);
+export const RECORDS_KEY = "records-product-v1";
+export function record(code: string, result: Records[string]) {
+  const records = load<Records>(RECORDS_KEY, {}),
+    old = records[code];
+  if (
+    !old ||
+    result.score < old.score ||
+    (result.score === old.score && result.penaltyPoints > old.penaltyPoints)
+  )
+    records[code] = result;
+  return save(RECORDS_KEY, records);
 }

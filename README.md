@@ -1,29 +1,64 @@
 # Paper Track — Wyścig na kartce
 
-Gra logiczna PWA po polsku: narysuj najkrótszą drogę po torze na kartce w kratkę. Bez fizyki, pojazdów i prędkości. TypeScript, Canvas, Vite, Vitest i Playwright; bez backendu.
+Gra logiczna PWA po polsku: znajdź trasę po torze narysowanym na kartce w kratkę. Bez pojazdów, fizyki i prędkości. TypeScript, Canvas, Vite, Vitest i Playwright; bez backendu.
 
 ## Zasady i sterowanie
 
-**Kliknij czerwony punkt START**, następnie kliknij jeden z podświetlonych sąsiednich węzłów. Między punktami powstanie jeden odcinek. Każde kolejne kliknięcie przesuwa koniec trasy **dokładnie o jedną kratkę**: góra, dół, lewo, prawo lub po przekątnej. Na telefonie dotykaj kolejnych punktów. Przeciąganie nie rysuje trasy. Kliknięcie dalszego punktu jest odrzucane bez dodawania pośrednich odcinków.
+1. Kliknij czerwony punkt **START**.
+2. Kliknij koniec odcinka na przecięciu siatki.
+3. W pionie albo poziomie odcinek może mieć **dowolną liczbę kratek**. Przekątna może pokonać **tylko jedną kratkę**.
+4. Na torze zamkniętym przejdź przez kolejne bramki w kolejności numerów i wróć do STARTU/METY. Na rajdzie dotrzyj do osobnej METY.
 
-Ruch poziomy lub pionowy kosztuje 1, ukośny √2. Cały odcinek musi leżeć na nawierzchni. Nie można ścinać przez wewnętrzną wyspę ani przez krawędź. Początkowo widoczna instrukcja prowadzi od wyboru STARTU do pierwszego odcinka; podświetlenia pokazują wszystkie legalne sąsiednie punkty, nie rozwiązanie.
+Każdy odcinek powstaje przez osobne kliknięcie albo dotknięcie, nie przez przeciąganie. Nie ma podświetlanych ruchów, podpowiedzi trasy ani przycisku pokazującego rozwiązanie. Numeracja bramek określa obowiązkową kolejność okrążenia, nie linię przejazdu.
 
-Na torze zamkniętym przejedź przez wszystkie ponumerowane sektory w kolejności strzałek i wróć do czerwonego punktu. Numery pokazują kolejność bramek, nie obowiązkowe punkty przejazdu. Na rajdzie dotrzyj do osobnej METY. Start i meta są konkretnymi węzłami, aby porównanie z optimum było jednoznaczne.
+Cały odcinek musi mieścić się wewnątrz toru. **Dotknięcie bandy, przejście przez nią lub ścinanie przez wyspę to wypadek.** Próba kończy się i otrzymuje −5 pkt kary. Czerwony znak wskazuje pierwszy kontakt z bandą. Nie można anulować wypadku cofnięciem. Restart rozpoczyna nową próbę, ale kary na tym samym torze pozostają, również po ponownym otwarciu planszy.
 
-Między kliknięciami można dowolnie poruszać kursorem — trasa zmienia się dopiero po osobnym kliknięciu sąsiedniego punktu. „Cofnij”, „Cofnij 5”, „Wyczyść” i „Restart” nie zmieniają planszy. Przyciski + / − przybliżają widok, strzałki przesuwają kartkę, „Dopasuj” przywraca całość. Gest rysowania nie przewija strony. Rozwiązanie można zobaczyć dopiero po ukończeniu.
+„Cofnij” usuwa cały ostatni narysowany odcinek, „Cofnij 5” usuwa kilka. Przeliczane są długość i kliknięcia pozostałej trasy. Przyciski + / − powiększają widok, strzałki przesuwają kartkę, „Dopasuj” przywraca całość. Na telefonie dotykaj kolejnych punktów; rysowanie nie przewija strony.
 
-Tryb losowy ma trzy typy i pięć trudności. Kod `PT1-typ-trudność-seed` oraz link z fragmentem URL odtwarzają planszę. Kampania zawiera 100 stałych poziomów: 1–10 szerokie owale, 11–25 bardziej zróżnicowane łuki, 26–50 geometria z nawrotami, 51–75 węższe trasy, 76–100 najtrudniejsze konfiguracje. Poziomy są dostępne do ćwiczeń bez blokad; gwiazdki zapisują postęp.
+## Wynik — najmniejszy wygrywa
 
-## Lokalnie
+**Wynik = długość trasy w jednostkowych segmentach × liczba kliknięć rysujących odcinki.**
 
-Wymagany Node.js 24 i npm 11.
+- Jedna kratka pionowo lub poziomo: 1 segment długości.
+- Jednokratkowa przekątna: również 1 segment długości.
+- Prosta przez 5 kratek: długość 5, narysowana jednym kliknięciem.
+- START nie jest liczony jako kliknięcie do wyniku.
+- Nietrafione kliknięcia, wybór tego samego punktu i przyciski interfejsu nie tworzą odcinków i nie zwiększają mnożnika.
+
+Przykład: odcinki o długościach 5 i 3 narysowane dwoma kliknięciami dają **(5 + 3) × 2 = 16**. Ta sama trasa podzielona na osiem jednokratkowych odcinków daje **8 × 8 = 64**.
+
+Punkty karne są prezentowane osobno od iloczynu. Próba zakończona wypadkiem nie zapisuje wyniku jako ukończonego toru. Kary nie obniżają iloczynu, co byłoby premią przy zasadzie „najmniejszy wygrywa”.
+
+Rekord aktualizuje się przy niższym iloczynie; przy remisie preferowana jest mniejsza kara (np. 0 pkt przed −5 pkt). Nowe rekordy mają osobną przestrzeń zapisu `records-product-v1`; dawnych rekordów długości nie porównuje się z iloczynem. Po ukończeniu widać oba składniki, wynik, rekord i minimalny możliwy wynik. Nie jest pokazywana optymalna linia.
+
+Progi gwiazdek w `STAR_THRESHOLDS`, `src/game/index.ts`:
+
+| Ocena | Wynik względem minimalnego iloczynu |
+| ----- | ----------------------------------- |
+| ★★★   | do 102% włącznie                    |
+| ★★    | do 110% włącznie                    |
+| ★     | powyżej 110%, poprawne ukończenie   |
+
+Definicja długości i sposób liczenia STARTU są zapisane w `src/game/scoring.ts`. Kara za wypadek to `CRASH_PENALTY` w `src/game/index.ts`.
+
+## Tryby
+
+Losowe tory: żużlowy, samochodowy lub rajdowy, pięć trudności. Kod `PT1-typ-trudność-seed` oraz link z fragmentem URL odtwarzają planszę. Kampania ma 100 stałych poziomów, od szerokich owali do węższych tras z nawrotami. Poziomy można ćwiczyć bez blokad; gwiazdki zapisują postęp. Ustawienia i rekordy są lokalne dla urządzenia i originu.
+
+## Gotowy plik do otwarcia dwuklikiem
+
+Pobierz `downloads/PaperTrack.html` i otwórz w Chrome/Edge. Działa bez serwera, Node.js i internetu. `downloads/PaperTrack-gotowa-gra.zip` zawiera HTML, instrukcję i pełne źródła. Na iPhone/iPad instalacja PWA wymaga wersji hostowanej przez HTTPS; samo otwarcie pobranego HTML w systemowym podglądzie plików nie zastępuje instalacji webowej.
+
+## Lokalnie i testy
+
+Wymagany Node.js 24 i npm 11:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Vite obsługuje aplikację pod ścieżką `/PaperTrack/`. Do produkcji:
+Aplikacja ma bazę `/PaperTrack/`. Walidacja i produkcja:
 
 ```sh
 npm run lint
@@ -32,66 +67,38 @@ npm run build
 npm run preview
 ```
 
-`lint` uruchamia ESLint i sprawdza typy TypeScript w trybie strict. Budowanie generuje osobny Worker i service worker z listą wszystkich plików aktualnego buildu.
-
-## Testy przeglądarkowe
+`lint` uruchamia ESLint i TypeScript strict. Testy obejmują 1000 seedów dla każdego typu, pełną kampanię, ścisłą geometrię bez kontaktu z bandami, długie proste, przekątne, kary, cofanie, zapis rekordów i dokładne optimum iloczynu. Niezależne przykłady sprawdzają, że solver prawidłowo rozstrzyga kompromis między krótszą trasą a mniejszą liczbą kliknięć.
 
 ```sh
 npx playwright install --with-deps chromium webkit
 npm run test:e2e
 ```
 
-Konfiguracja uruchamia produkcyjny build i sprawdza desktop Chromium oraz profile iPhone i iPad w WebKit. Jeżeli dostępny jest tylko systemowy Chromium:
+E2E uruchamia produkcyjny build i testuje desktop Chromium oraz profile iPhone/iPad w WebKit: ukończenie, iloczyn, rekordy, offline, kampanię, orientację, brak podpowiedzi, długie odcinki, wypadki, trwałość kar, anulowanie gestu, cofanie, powiększanie i przesuwanie. `SYSTEM_CHROMIUM=1 npm run test:e2e` to wariant z systemowym `/usr/bin/chromium`; emuluje mobilny rozmiar, ale nie testuje WebKit.
+
+Odtworzenie plików do pobrania po zmianach (wymagany także Python 3):
 
 ```sh
-SYSTEM_CHROMIUM=1 npm run test:e2e
+npm run package
 ```
 
-Ten wariant emuluje rozmiary i dotyk iOS w Chromium — nie zastępuje Safari ani testów sprzętowych. Testy obejmują rysowanie całego rozwiązania, blokadę podglądu przed metą, gwiazdki, restart, rekord, offline, kampanię i zmianę orientacji. Testy jednostkowe sprawdzają 1000 seedów dla każdego typu, pełne 100 poziomów, szerokość, topologię, połączenie grafu, legalność odcinków, solver, koszty, deterministyczność i cofanie.
+Eksport osadza CSS, kod i generator jako klasyczny Blob Worker w jednym HTML. ZIP zawiera aktualne źródła, pomija starsze paczki, node_modules i dist.
 
-## Generator i solver
+## Architektura
 
-- `src/geometry`: wielokąty i dokładna kontrola całego odcinka. Odcinek dzielony jest w przecięciach z granicami; każdy powstały przedział musi należeć do nawierzchni. Same legalne końce nie wystarczają.
-- `src/generator`: deterministyczny PRNG i oś toru; owale z dwiema prostymi, tory samochodowe z łukami lub zaokrąglonym nawrotem, rajdy z falującym korytarzem. Granice torów zamkniętych powstają przez odsunięcie osi, rajdowych przez przekroje poszerzone względem maksymalnego nachylenia. Szerokość domyślna 4–7 kratek; API dopuszcza 4–8.
-- `validate.ts`: brak samoprzecięć, minimalna odległość granic, jedna spójna składowa legalnych węzłów. Następnie solver potwierdza przejezdność przez bramki. Maksymalnie pięć deterministycznych prób i zweryfikowany wariant zapasowy. Nie ma nieskończonej pętli losowania.
-- `src/solver`: Dijkstra z kolejką binarną, stan `(węzeł, ostatnia zaliczona bramka)`. Koszty to dokładnie 1 i √2; rozwiązanie nie jest estymowane. Pełne okrążenie wymaga przejścia wszystkich sektorów w kolejności. Cofnięcie do wcześniejszego sektora nie zalicza kolejnej bramki.
-- `src/game`: przebieg próby i odwracalne operacje cofania.
-- `src/input`: obsługa pojedynczych kliknięć i dotknięć przez Pointer Events; odrzucanie przeciągania i anulowanych gestów.
-- `src/rendering`: Canvas z HiDPI, siatką i śladem atramentu. Odświeżanie tylko po zmianie stanu, gestach i zmianie rozmiaru.
-- `src/storage`: ustawienia i najlepsze wyniki w localStorage, z obsługą niedostępnej pamięci.
+- `src/geometry`: analityczne sprawdzanie całych odcinków i pierwszego kontaktu z granicą. Obejmuje styczność, końce odcinka i pokrywanie z bandą. Legalne końce nie wystarczają, jeśli odcinek przechodzi poza torem.
+- `src/generator`: deterministyczna oś i granice; owale z dwiema prostymi, tory samochodowe z łukami i nawrotami, rajdy z falującym korytarzem. Minimalna szerokość domyślna 4 kratki. Walidacja samoprzecięć, szerokości, spójności i pełnego przejazdu przez bramki. Maksymalnie pięć prób, potem zweryfikowany wariant zapasowy.
+- Graf generatora zawiera jednostkowe ruchy, które **nie dotykają żadnej bandy**. Długa prosta sprawdza całą geometrię i postęp każdej pośredniej bramki, ale zapisuje jeden narysowany odcinek.
+- `src/solver`: Dijkstra do weryfikacji przejezdności oraz dokładne wyszukiwanie etykiet Pareto do minimalizacji **długość × kliknięcia**. Stan obejmuje węzeł, bramki i ostatni kierunek. Przedłużenie tej samej prostej zwiększa długość, ale nie kliknięcia. Każda przekątna wymaga nowego kliknięcia. Zachowywane są niedominowane pary długość/kliknięcia; jedna „najlepsza długość” na węzeł nie wystarcza do tego celu.
+- `src/game`: rozgrywka, atomowa kontrola długich ruchów, wypadki, kary i cofanie.
+- `src/input`: pojedyncze kliknięcia/dotknięcia, bez rysowania przy przeciąganiu.
+- `src/rendering`: Canvas HiDPI z siatką, linią gracza i oznaczeniem wypadku; bez podpowiedzi ruchów.
+- `src/storage`: osobne rekordy iloczynu oraz zapis kar; obsługa niedostępnej pamięci.
 
-Generowanie, walidacja i wyznaczanie optimum odbywają się w Web Workerze. Interfejs pozostaje responsywny. Graf przechowuje jedynie legalne węzły i osiem sąsiednich ruchów.
+Generowanie i optymalizacja działają w Web Workerze. Renderowanie odbywa się po zmianach, bez stałej pętli 60 FPS.
 
-## Punktacja
+## PWA i GitHub Pages
 
-Progi w jednym miejscu: `STAR_THRESHOLDS` w `src/game/index.ts`.
+Manifest zawiera ikony 192/512 px i tryb standalone. Service worker przechowuje wszystkie zasoby aktualnego buildu, w tym Worker generatora; offline działa po pełnej aktywacji. W Safari wybierz Udostępnij → Do ekranu początkowego, w Chrome/Edge — Zainstaluj aplikację. Układ uwzględnia safe areas i orientację, kratki pozostają kwadratowe. Nie wykonano testów na fizycznym iPhonie/iPadzie.
 
-| Ocena | Długość względem optimum          |
-| ----- | --------------------------------- |
-| ★★★   | do 102% włącznie                  |
-| ★★    | do 110% włącznie                  |
-| ★     | powyżej 110%, poprawne ukończenie |
-
-Rekord aktualizuje się tylko dla krótszej trasy. Długości prezentowane są po zaokrągleniu, obliczenia odbywają się w pełnej precyzji `number`.
-
-## PWA i urządzenia mobilne
-
-Manifest ma ikony 192 i 512 px, tryb standalone i zakres `/PaperTrack/`. W Safari: Udostępnij → Do ekranu początkowego. Chrome/Edge: Zainstaluj aplikację. HTTPS jest wymagany poza localhost. Po aktywowaniu service workera wszystkie zasoby, w tym Worker generatora, są dostępne offline. Nowy build tworzy nową wersję cache i usuwa starsze cache aplikacji.
-
-Układ uwzględnia safe areas, orientację pionową i poziomą. Kratki pozostają kwadratowe. Zapis jest lokalny dla danego urządzenia i originu; wyczyszczenie danych przeglądarki usuwa rekordy. Prywatne przeglądanie może ograniczać trwałość danych. Weryfikacja na fizycznym iPhonie/iPadzie wymaga osobnego testu sprzętowego.
-
-## GitHub Pages
-
-Workflow `.github/workflows/pages.yml` wykonuje `npm ci`, kontrolę typów, testy, build, instalację przeglądarek i E2E, następnie przekazuje `dist` do GitHub Pages. Pull requesty uruchamiają walidację bez publikowania. Dla wdrożenia:
-
-1. W repozytorium GitHub wybierz Settings → Pages → Source: GitHub Actions.
-2. Wyślij zmiany na `main` albo uruchom workflow ręcznie.
-3. Sprawdź zielony job `deploy`; adres wdrożenia zwraca GitHub Actions.
-
-Baza Vite, manifest i zakres service workera wskazują `/PaperTrack/`. Zmiana nazwy repozytorium wymaga aktualizacji tych ścieżek. Sam lokalny build nie potwierdza publikacji.
-
-## Gotowy plik do otwarcia dwuklikiem
-
-`downloads/PaperTrack.html` działa bez serwera i internetu w Chrome/Edge. Kliknij START, potem kolejne sąsiednie punkty — jedna kratka na kliknięcie. ZIP `downloads/PaperTrack-gotowa-gra.zip` zawiera ten sam HTML, instrukcję oraz źródła.
-
-Aby odświeżyć pliki do pobrania po zmianie kodu, wykonaj `npm run package` (wymaga Node.js 24 i Python 3). Eksport osadza CSS, kod gry i generator w jednym HTML; Worker typu classic działa również z pliku lokalnego. W ZIP pomijane są poprzednie paczki, node_modules i dist.
+Workflow `.github/workflows/pages.yml` uruchamia instalację, lint, testy, build, E2E i publikację `dist`. Pull requesty nie publikują. Ustaw w GitHub **Settings → Pages → Source → GitHub Actions**, następnie wyślij `main` albo uruchom workflow. Adres zwraca udany job `deploy`; sam build nie potwierdza publikacji. Baza Vite, manifest i zakres service workera to `/PaperTrack/`.

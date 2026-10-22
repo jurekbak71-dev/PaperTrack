@@ -1,6 +1,6 @@
 import { validate } from "./validate";
 import { solve } from "../solver";
-import { distance, segmentIn, type Point } from "../geometry";
+import { distance, segmentClear as segmentIn, type Point } from "../geometry";
 export type Kind = "oval" | "circuit" | "rally";
 export type Track = {
   seed: string;

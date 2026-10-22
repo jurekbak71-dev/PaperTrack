@@ -1,33 +1,59 @@
+import { segmentLength, scoreOf, SCORE_RULES } from "./scoring";
 import type { Track } from "../generator";
 import { advance, complete } from "../solver";
-import { distance, type Point } from "../geometry";
+import { distance, boundaryContact, inside, type Point } from "../geometry";
 export const STAR_THRESHOLDS = [1.02, 1.1] as const;
+export const CRASH_PENALTY = 5;
 export class Game {
   path: number[];
   stages: number[] = [0];
   length = 0;
+  lengthSegments = 0;
   started = false;
-  constructor(public track: Track) {
+  crashed = false;
+  crashPoint: Point | null = null;
+  private lookup: Map<string, number>;
+  constructor(
+    public track: Track,
+    public penaltyPoints = 0,
+  ) {
     this.path = [track.start];
+    this.lookup = new Map(track.nodes.map((p, i) => [`${p.x},${p.y}`, i]));
   }
   get last() {
     return this.path.at(-1)!;
   }
-  get done() {
+  get segments() {
+    return this.path.length - 1;
+  }
+  get clicks() {
     return (
-      this.path.length > 1 &&
-      complete(this.track, this.last, this.stages.at(-1)!)
+      this.segments + (this.started && SCORE_RULES.countStartClick ? 1 : 0)
     );
   }
-  get choices() {
-    if (!this.started || this.done) return [];
-    return this.track.edges[this.last].filter(
-      (next) => advance(this.track, this.last, next, this.stages.at(-1)!) >= 0,
+  get score() {
+    return scoreOf(this.lengthSegments, this.segments);
+  }
+  get done() {
+    return (
+      !this.crashed &&
+      this.segments > 0 &&
+      complete(this.track, this.last, this.stages.at(-1)!)
     );
   }
   select(
     point: Point,
-  ): "start" | "move" | "same" | "need-start" | "too-far" | "illegal" | "done" {
+  ):
+    | "start"
+    | "move"
+    | "same"
+    | "need-start"
+    | "direction"
+    | "illegal"
+    | "done"
+    | "crash"
+    | "crashed" {
+    if (this.crashed) return "crashed";
     if (this.done) return "done";
     const current = this.track.nodes[this.last];
     if (!this.started) {
@@ -37,31 +63,63 @@ export class Game {
     }
     const dx = Math.abs(point.x - current.x),
       dy = Math.abs(point.y - current.y);
-    if (dx === 0 && dy === 0) return "same";
-    if (Math.max(dx, dy) !== 1) return "too-far";
-    const next = this.track.edges[this.last].find(
-      (id) =>
-        this.track.nodes[id].x === point.x &&
-        this.track.nodes[id].y === point.y,
-    );
-    return next !== undefined && this.move(next) ? "move" : "illegal";
+    if (!dx && !dy) return "same";
+    if (
+      !Number.isInteger(point.x) ||
+      !Number.isInteger(point.y) ||
+      (dx && dy && (dx !== 1 || dy !== 1))
+    )
+      return "direction";
+    const contact = boundaryContact(current, point, [
+      this.track.outer,
+      this.track.hole,
+    ]);
+    if (
+      contact ||
+      !inside(point, this.track.outer) ||
+      (this.track.hole.length && inside(point, this.track.hole))
+    ) {
+      this.crashed = true;
+      this.crashPoint = contact ?? point;
+      this.penaltyPoints -= CRASH_PENALTY;
+      return "crash";
+    }
+    let node = this.last,
+      stage = this.stages.at(-1)!;
+    const steps = Math.max(dx, dy),
+      sx = Math.sign(point.x - current.x),
+      sy = Math.sign(point.y - current.y);
+    for (let i = 1; i <= steps; i++) {
+      const next = this.lookup.get(
+        `${current.x + i * sx},${current.y + i * sy}`,
+      );
+      if (next === undefined || !this.track.edges[node].includes(next))
+        return "illegal";
+      stage = advance(this.track, node, next, stage);
+      if (stage < 0) return "illegal";
+      node = next;
+    }
+    this.length += distance(current, point);
+    this.lengthSegments += segmentLength(current, point);
+    this.path.push(node);
+    this.stages.push(stage);
+    return "move";
   }
   move(next: number) {
-    if (this.done || !this.track.edges[this.last].includes(next)) return false;
-    const stage = advance(this.track, this.last, next, this.stages.at(-1)!);
-    if (stage < 0) return false;
-    this.length += distance(
-      this.track.nodes[this.last],
-      this.track.nodes[next],
-    );
-    this.path.push(next);
-    this.stages.push(stage);
-    return true;
+    if (!this.track.nodes[next]) return false;
+    // Retain the low-level traversal API, while applying the same collision rules.
+    this.started = true;
+    return this.select(this.track.nodes[next]) === "move";
   }
   undo() {
-    if (this.path.length < 2) return;
+    if (this.crashed || this.path.length < 2) return;
     const p = this.path.pop()!;
     this.stages.pop();
+    this.lengthSegments = Math.max(
+      0,
+      this.lengthSegments -
+        segmentLength(this.track.nodes[p], this.track.nodes[this.last]),
+    );
     this.length = Math.max(
       0,
       this.length - distance(this.track.nodes[p], this.track.nodes[this.last]),
@@ -69,8 +127,11 @@ export class Game {
   }
   clear() {
     this.started = false;
+    this.crashed = false;
+    this.crashPoint = null;
     this.path = [this.track.start];
     this.stages = [0];
     this.length = 0;
+    this.lengthSegments = 0;
   }
 }

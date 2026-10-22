@@ -4,7 +4,7 @@ import { generate, campaign, type Kind } from "../src/generator";
 import { segmentIn, distance } from "../src/geometry";
 import { solve, complete } from "../src/solver";
 import { Game } from "../src/game";
-import { record, load } from "../src/storage";
+import { record, load, RECORDS_KEY } from "../src/storage";
 describe("geometria", () => {
   it("sprawdza cały odcinek, również przez dziurę", () => {
     const outer = [
@@ -36,25 +36,16 @@ describe("geometria", () => {
     }
     expect(distance({ x: 0, y: 0 }, { x: 1, y: 1 })).toBe(Math.SQRT2);
   });
-  it("jeden klik nigdy nie dodaje kilku kratek ani nie zmienia odrzuconej trasy", () => {
+  it("dłuższa przekątna jest odrzucana bez zmiany trasy", () => {
     const t = generate("klik", "rally"),
       g = new Game(t),
       start = t.nodes[t.start];
-    expect(g.select(start)).toBe("start");
-    expect(g.select(start)).toBe("same");
-    expect(g.select({ x: start.x + 2, y: start.y })).toBe("too-far");
-    expect(g.select({ x: start.x + 2, y: start.y + 2 })).toBe("too-far");
-    expect(g.length).toBe(0);
-    expect(g.path).toEqual([t.start]);
-    expect(g.stages).toEqual([0]);
-    const next = g.choices[0];
-    expect(g.select(t.nodes[next])).toBe("move");
-    g.undo();
-    expect(g.started).toBe(true);
-    expect(g.last).toBe(t.start);
+    g.select(start);
+    expect(g.select({ x: start.x + 2, y: start.y + 2 })).toBe("direction");
+    expect(g.segments).toBe(0);
+    expect(g.penaltyPoints).toBe(0);
     g.clear();
     expect(g.started).toBe(false);
-    expect(g.choices).toEqual([]);
   });
   it("wyznacza rzeczywiste optimum na prostym grafie", () => {
     const t = generate("simple", "rally");
@@ -97,9 +88,23 @@ describe("geometria", () => {
         setItem: (k: string, v: string) => m.set(k, v),
       },
     });
-    record("a", 10, 3);
-    record("a", 11, 2);
-    expect(load<any>("records", {}).a.length).toBe(10);
+    record("a", {
+      score: 10,
+      lengthSegments: 5,
+      clicks: 2,
+      stars: 3,
+      level: 0,
+      penaltyPoints: 0,
+    });
+    record("a", {
+      score: 11,
+      lengthSegments: 11,
+      clicks: 1,
+      stars: 2,
+      level: 0,
+      penaltyPoints: 0,
+    });
+    expect(load<any>(RECORDS_KEY, {}).a.score).toBe(10);
   });
   it("deterministyczny seed", () =>
     expect(generate("fixed", "circuit")).toEqual(generate("fixed", "circuit")));

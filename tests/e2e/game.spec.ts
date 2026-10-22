@@ -1,6 +1,7 @@
+import { Game } from "../../src/game";
 import { test, expect, type Page } from "@playwright/test";
 import { generate, type Track } from "../../src/generator";
-import { solve } from "../../src/solver";
+import { solveScore } from "../../src/solver";
 
 async function nodeClick(
   page: Page,
@@ -34,21 +35,23 @@ test("kliknięcia, pełny tor, optimum, rekord i offline", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   const track = generate("e2e", "oval", 1),
-    solution = solve(track);
+    solution = solveScore(track);
   await page.goto("./#PT1-oval-1-e2e");
   await expect(page.locator("canvas")).toBeVisible();
   await expect(page.getByText("Pokaż najlepszą trasę")).toHaveCount(0);
   await expect(page.locator(".click-help")).toContainText(
-    "Jeden klik = jedna kratka",
+    "Pion / poziom: dowolna długość",
   );
   await nodeClick(page, track, track.start);
   await expect(page.locator("#status")).toContainText("START wybrany");
-  await expect(page.locator("#length")).toHaveText("0,00");
+  await expect(page.locator("#score")).toHaveText("0");
   for (const next of solution.path.slice(1)) await nodeClick(page, track, next);
   await expect(page.locator("#result")).toContainText("Meta! ★★★");
-  await page.getByRole("button", { name: "Pokaż najlepszą trasę" }).click();
+  await expect(page.getByText("Pokaż najlepszą trasę")).toHaveCount(0);
+  await expect(page.locator("#score")).toHaveText(String(solution.score));
+  await expect(page.locator("#clicks")).toHaveText(String(solution.clicks));
   await page.getByRole("button", { name: "Zagraj ponownie" }).click();
-  await expect(page.locator("#length")).toHaveText("0,00");
+  await expect(page.locator("#score")).toHaveText("0");
   await expect(page.locator("#status")).toContainText(
     "Kliknij czerwony punkt START",
   );
@@ -72,7 +75,7 @@ test("kliknięcia, pełny tor, optimum, rekord i offline", async ({ page }) => {
   await expect(page.locator("canvas")).toBeVisible();
   await nodeClick(page, track, track.start);
   await nodeClick(page, track, solution.path[1]);
-  await expect(page.locator("#length")).not.toHaveText("0,00");
+  await expect(page.locator("#score")).not.toHaveText("0");
   expect(errors).toEqual([]);
 });
 
@@ -91,33 +94,76 @@ test("kampania, kod i responsywny układ", async ({ page }) => {
   await expect(page.locator("canvas")).toBeVisible();
 });
 
-test("odrzuca skoki, ponowny klik, przeciąganie i anulowany gest; cofa odcinki", async ({
+test("długa prosta, odrzucenie długiej przekątnej, cofanie i wypadek z karą", async ({
   page,
 }) => {
   const track = generate("gest", "rally", 3),
-    solution = solve(track);
+    start = track.nodes[track.start];
+  const target = track.nodes.find((p) => {
+    if (
+      (p.x !== start.x && p.y !== start.y) ||
+      Math.max(Math.abs(p.x - start.x), Math.abs(p.y - start.y)) < 2
+    )
+      return false;
+    const g = new Game(track);
+    g.select(start);
+    return g.select(p) === "move";
+  })!;
   await page.goto("./#PT1-rally-3-gest");
-  const canvas = page.locator("canvas");
-  await expect(canvas).toBeVisible();
-  await nodeClick(page, track, solution.path[1]);
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator("#app")).not.toContainText("podświetl");
+  await expect(page.getByText("Pokaż najlepszą trasę")).toHaveCount(0);
+  await pointClick(page, target);
   await expect(page.locator("#status")).toContainText("Najpierw kliknij");
-  await expect(page.locator("#length")).toHaveText("0,00");
-  await nodeClick(page, track, track.start);
-  const far = solution.path.find(
-    (id) =>
-      Math.max(
-        Math.abs(track.nodes[id].x - track.nodes[track.start].x),
-        Math.abs(track.nodes[id].y - track.nodes[track.start].y),
-      ) > 1,
-  )!;
-  await nodeClick(page, track, far);
-  await expect(page.locator("#status")).toContainText("Za daleko");
-  await expect(page.locator("#length")).toHaveText("0,00");
-  await nodeClick(page, track, track.start);
-  await expect(page.locator("#length")).toHaveText("0,00");
-  const box = (await canvas.boundingBox())!,
+  await pointClick(page, start);
+  await expect(page.locator("#clicks")).toHaveText("0");
+  await pointClick(page, { x: start.x + 2, y: start.y + 2 });
+  await expect(page.locator("#status")).toContainText(
+    "Przekątna ma najwyżej jedną kratkę",
+  );
+  await expect(page.locator("#penalties")).toContainText("0 pkt");
+  await pointClick(page, target);
+  const length = Math.max(
+    Math.abs(target.x - start.x),
+    Math.abs(target.y - start.y),
+  );
+  await expect(page.locator("#clicks")).toHaveText("1");
+  await expect(page.locator("#length-segments")).toHaveText(String(length));
+  await expect(page.locator("#score")).toHaveText(String(length));
+  await pointClick(page, target);
+  await expect(page.locator("#clicks")).toHaveText("1");
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(page.locator("#score")).toHaveText("0");
+  await expect(page.locator("#clicks")).toHaveText("0");
+  await pointClick(page, { x: 0, y: start.y });
+  await expect(page.locator("#result")).toContainText("Wypadek");
+  await expect(page.locator("#penalties")).toContainText("-5 pkt");
+  await expect(page.locator("#score")).toHaveText("0");
+  await pointClick(page, target);
+  await expect(page.locator("#penalties")).toContainText("-5 pkt");
+  await expect(page.locator("#clicks")).toHaveText("0");
+  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
+  await expect(page.locator("#result")).toContainText("Wypadek");
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await expect(page.locator("#penalties")).toContainText("-5 pkt");
+  await expect(page.locator("#status")).toContainText(
+    "Kliknij czerwony punkt START",
+  );
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator("#penalties")).toContainText("-5 pkt");
+});
+
+test("przeciąganie i anulowanie gestu nie dodają odcinków", async ({
+  page,
+}) => {
+  const track = generate("gest", "rally", 3),
     start = track.nodes[track.start],
-    next = track.nodes[solution.path[1]];
+    next = track.nodes[track.edges[track.start][0]];
+  await page.goto("./#PT1-rally-3-gest");
+  await expect(page.locator("canvas")).toBeVisible();
+  await pointClick(page, start);
+  const box = (await page.locator("canvas").boundingBox())!;
   await page.mouse.move(
     box.x + (start.x / 52) * box.width,
     box.y + (start.y / 52) * box.width,
@@ -128,7 +174,7 @@ test("odrzuca skoki, ponowny klik, przeciąganie i anulowany gest; cofa odcinki"
     box.y + (next.y / 52) * box.width,
   );
   await page.mouse.up();
-  await expect(page.locator("#length")).toHaveText("0,00");
+  await expect(page.locator("#clicks")).toHaveText("0");
   await expect(page.locator("#status")).toContainText(
     "Przeciąganie nie dodaje",
   );
@@ -137,53 +183,18 @@ test("odrzuca skoki, ponowny klik, przeciąganie i anulowany gest; cofa odcinki"
     box.y + (next.y / 52) * box.width,
   );
   await page.mouse.down();
-  await canvas.dispatchEvent("pointercancel", {
-    pointerId: 1,
-    isPrimary: true,
-  });
+  await page
+    .locator("canvas")
+    .dispatchEvent("pointercancel", { pointerId: 1, isPrimary: true });
   await page.mouse.up();
-  await expect(page.locator("#length")).toHaveText("0,00");
-  await nodeClick(page, track, solution.path[1]);
-  const length = Math.hypot(start.x - next.x, start.y - next.y)
-    .toFixed(2)
-    .replace(".", ",");
-  await expect(page.locator("#length")).toHaveText(length);
-  await nodeClick(page, track, solution.path[2]);
-  await page.getByRole("button", { name: "Cofnij", exact: true }).click();
-  await expect(page.locator("#length")).toHaveText(length);
-  await page.getByRole("button", { name: "Cofnij 5" }).click();
-  await expect(page.locator("#length")).toHaveText("0,00");
-  const outside = track.nodes[track.start];
-  const bad = [
-    [-1, -1],
-    [-1, 0],
-    [-1, 1],
-    [0, -1],
-    [0, 1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-  ]
-    .map(([x, y]) => ({ x: outside.x + x, y: outside.y + y }))
-    .find(
-      (p) =>
-        !track.edges[track.start].some(
-          (id) => track.nodes[id].x === p.x && track.nodes[id].y === p.y,
-        ),
-    )!;
-  await pointClick(page, bad);
-  await expect(page.locator("#status")).toContainText("wychodzi poza tor");
-  await expect(page.locator("#length")).toHaveText("0,00");
-  await page.getByRole("button", { name: "Restart", exact: true }).click();
-  await nodeClick(page, track, solution.path[1]);
-  await expect(page.locator("#status")).toContainText("Najpierw kliknij");
+  await expect(page.locator("#clicks")).toHaveText("0");
 });
 
 test("kliknięcia uwzględniają powiększenie i przesunięcie", async ({
   page,
 }) => {
   const track = generate("zoom", "oval", 1),
-    solution = solve(track);
+    solution = solveScore(track);
   await page.goto("./#PT1-oval-1-zoom");
   await expect(page.locator("canvas")).toBeVisible();
   await page.getByRole("button", { name: "Przybliż", exact: true }).click();
@@ -192,7 +203,7 @@ test("kliknięcia uwzględniają powiększenie i przesunięcie", async ({
     .click();
   await nodeClick(page, track, track.start, 1.25, { x: -3, y: 0 });
   await nodeClick(page, track, solution.path[1], 1.25, { x: -3, y: 0 });
-  await expect(page.locator("#length")).not.toHaveText("0,00");
+  await expect(page.locator("#score")).not.toHaveText("0");
 });
 
 test("generator nie blokuje kolejki zdarzeń interfejsu", async ({ page }) => {

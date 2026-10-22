@@ -32,3 +32,15 @@ Zastąpiono przeciąganie wyborem kolejnych punktów. Osobny klik STARTU rozpocz
 - Grupa jednostkowa `geometria`: 8/8, w tym wszystkie osiem kierunków, odrzucanie skoków i pełna kampania. Trzech długich testów seedów nie powtarzano dla zmiany sterowania — generator nie został zmieniony; ich wcześniejszy pełny wynik opisano powyżej.
 - E2E Chromium + profile iPhone/iPad w WebKit: **15/15**, 27,5 s. Faktyczne kliknięcia myszą i dotknięcia obejmują pełne ukończenie toru, offline, odmowę skoku, ponowny klik tego samego punktu, przeciąganie, anulowanie, cofanie, restart oraz powiększenie i przesunięcie planszy.
 - `npm run package` odtwarza plik HTML i ZIP bez zagnieżdżania wcześniejszych paczek; źródła w ZIP pochodzą z aktualnych plików roboczych.
+
+## Długie proste, wypadki i iloczyn długości oraz kliknięć
+
+Zasady ustalone z użytkownikiem: pion/poziom o dowolnej długości w jednym kliknięciu, przekątna wyłącznie o jedną kratkę; przekątna ma długość 1 segmentu; START nie wchodzi do liczby kliknięć. Wynik jest iloczynem sumy jednostkowych segmentów i kliknięć tworzących odcinki aktualnej trasy. Wygrywa mniejszy iloczyn.
+
+Usunięto podświetlenia i pokazywanie rozwiązania. Samo dotknięcie bandy, także stycznie lub końcem odcinka, kończy próbę wypadkiem i nalicza −5 pkt. Przekroczenie granicy jest sprawdzane na całym długim odcinku. Kary pozostają po restarcie i ponownym otwarciu planszy. Próba z wypadkiem nie zapisuje ukończonego wyniku. Rekordy iloczynu mają osobną przestrzeń zapisu.
+
+- `npm test`: **20/20**, 163,43 s. Obejmuje 3000 seedów, wszystkie 100 poziomów kampanii i odtworzenie optymalnego iloczynu na każdym poziomie, długie proste w czterech kierunkach, przekątne, kontakt z bandą, cofanie, bramki pośrednie, rekordy i niezależne przykłady kompromisu długość/kliknięcia.
+- Pełne E2E Chromium + iPhone/iPad w WebKit: **18/18**, 49,2 s. Weryfikują rzeczywiste kliknięcia/dotknięcia, iloczyn, optimum, pełne ukończenie, brak podpowiedzi, wypadek i trwałość kary, offline, kampanię, orientację, cofanie, anulowanie gestu i dopasowanie współrzędnych po powiększeniu/przesunięciu.
+- Optimum iloczynu liczy dokładny solver etykiet Pareto (długość, kliknięcia), z kierunkiem i bramkami w stanie; nie jest estymowane na podstawie starej długości ani minimalnej liczby odcinków.
+
+Ograniczenie pozostaje bez zmian: brak testów na fizycznych urządzeniach iOS.
