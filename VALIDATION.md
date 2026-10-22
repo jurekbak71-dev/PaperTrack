@@ -8,6 +8,18 @@
 - `SYSTEM_CHROMIUM=1 npm run test:e2e`: 12/12 — desktop i mobilne rozmiary iPhone/iPad w systemowym Chromium, ukończenie i gwiazdki, podgląd rozwiązania, rekord, restart, offline z nową planszą, kampania, orientacja, anulowanie dotyku, wznowienie, cofanie, krawędź i responsywność podczas generowania.
 - Sprawdzono uruchomienie serwera deweloperskiego i renderowanie planszy w przeglądarce.
 
-Nie wykonano testów na fizycznych urządzeniach iOS. Pobieranie Chromium/WebKit przez Playwright zostało zablokowane przez politykę sieciową (HTTP 403); użyto istniejącego `/usr/bin/chromium`. Mobilne scenariusze zawierają zdarzenia PointerEvent z typem `touch`; nie zastępują testów Safari i sprzętu.
+## WebKit i GitHub Actions
 
-Workflow publikacji znajduje się w `.github/workflows/pages.yml`. Sukces testów lokalnych nie oznacza udanej publikacji na GitHub Pages. Wymagane ustawienie repozytorium: Pages → Source → GitHub Actions. Stan zewnętrznego wdrożenia należy sprawdzić po wykonaniu workflow.
+Po zastosowaniu dostępu sieciowego pobrano Chromium i WebKit. Biblioteki WebKit zainstalowano lokalnie bez konta administratora, z podpisanego repozytorium Debian trixie. Sprawdzono wszystkie zależności headless WPE przez `ldd` i załadowanie `libGLESv2` przez `dlopen`. Lokalny walidator Playwright opiera wykrywanie tej biblioteki na systemowym cache `ldconfig`, dlatego w tym wariancie użyto `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1` po niezależnym potwierdzeniu dostępności bibliotek. Żadne testy ani weryfikacja podpisów, checksum i TLS nie zostały wyłączone.
+
+Pełny lokalny przebieg Chromium + profile iPhone/iPad w WebKit: **12/12**, 19,9 s. Komenda dla przygotowanego środowiska:
+
+```sh
+LD_LIBRARY_PATH=/workspace/.cache/papertrack-browser-libs/usr/lib/x86_64-linux-gnu PLAYWRIGHT_BROWSERS_PATH=/workspace/.cache/ms-playwright PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 npm run test:e2e
+```
+
+[GitHub Actions: przebieg 39732088110](https://github.com/jurekbak71-dev/PaperTrack/actions/runs/39732088110) potwierdził sukces całego joba `test`: instalacja, ESLint, typy, 3000 seedów, kampania, build oraz E2E Chromium/WebKit. W CI użyto standardowej instalacji systemowej, bez pomijania walidatora bibliotek.
+
+**Publikacja nie powiodła się:** osobny job `deploy` zwrócił 404 z komunikatem „Ensure GitHub Pages has been enabled”. Repozytorium zgłaszało `has_pages: false`, a próba utworzenia strony przez API zwróciła `403 Resource not accessible by integration`. Użytkownik musi włączyć **Settings → Pages → Source → GitHub Actions**, a następnie ponowić nieudany job publikacji. Nie potwierdzono działającego adresu gry.
+
+Nie wykonano testów na fizycznych urządzeniach iPhone/iPad. Emulacja WebKit nie zastępuje weryfikacji sprzętowej.
