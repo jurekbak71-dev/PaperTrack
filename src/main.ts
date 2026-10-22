@@ -1,3 +1,4 @@
+import { Duel, ILLEGAL_PENALTY } from "./game/duel";
 import { SCORE_RULES } from "./game/scoring";
 import "./styles/main.css";
 import { type Kind, type Track } from "./generator";
@@ -9,16 +10,17 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 const names = { oval: "Żużlowy", circuit: "Samochodowy", rally: "Rajdowy" };
 let game: Game | undefined,
   track: Track,
-  solution: {
-    score: number;
-    lengthSegments: number;
-    clicks: number;
-    path: number[];
-  },
   level = 0,
   code = "",
   zoom = 1,
   invalid = false;
+let duel: Duel | undefined;
+let opponentTimer: ReturnType<typeof setTimeout> | null = null;
+let recorded = false;
+function cancelOpponent() {
+  if (opponentTimer !== null) clearTimeout(opponentTimer);
+  opponentTimer = null;
+}
 let pan = { x: 0, y: 0 };
 const worker = new Worker(new URL("./generator/worker.ts", import.meta.url), {
   type: "module",
@@ -32,7 +34,7 @@ const escape = (s: string) =>
       ]!,
   );
 function shell(content: string) {
-  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Osiem kierunków. Jedna najkrótsza droga. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
+  root.innerHTML = `<header><div><span class="eyebrow">Wyścig na kartce · 01</span><h1>Paper Track<span style="color:#b64e42">.</span></h1></div><small>Geometria zamiast prędkości</small></header>${content}<footer>Niebieski kontra czerwony. Ruchy na zmianę. &nbsp; / &nbsp; Papier · atrament · logika · sterowanie kliknięciami</footer>`;
 }
 function button(id: string, fn: () => void) {
   document.getElementById(id)?.addEventListener("click", fn);
@@ -41,8 +43,10 @@ let awaiting = false,
   requestId = 0;
 function menu() {
   awaiting = false;
+  cancelOpponent();
+  duel = undefined;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Narysuj drogę.<br>Zaoszczędź każdą kratkę.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Zmierz się z geometrią toru i znajdź najkrótszą legalną trasę.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach × kliknięcia. Najmniejszy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj niższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Najmniejszy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
   );
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
@@ -79,7 +83,7 @@ function randomMenu() {
 function campaignMenu() {
   const records = load<Records>(RECORDS_KEY, {});
   shell(
-    `<h2>Kampania · 100 kartek</h2><p>Każdy poziom ma stały seed. Możesz ćwiczyć dowolną planszę.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
+    `<h2>Kampania · 100 kartek</h2><p>Każdy poziom ma stały seed. 1–10: łagodne owale; 11–25: więcej łuków; 26–50: nawroty; 51–75: dwa nawroty i więcej bramek; 76–100: najwęższe tory i AI z krótszymi ruchami. Szerokość maleje na każdym kolejnym poziomie.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
   );
   root
     .querySelectorAll<HTMLButtonElement>("[data-level]")
@@ -114,6 +118,9 @@ function settings() {
   button("menu", menu);
 }
 function start(kind: Kind, difficulty: number, seed: string, l = 0) {
+  cancelOpponent();
+  duel = undefined;
+  recorded = false;
   invalid = false;
   awaiting = true;
   level = l;
@@ -143,9 +150,14 @@ worker.onmessage = (event) => {
     return;
   }
   track = event.data.track;
-  solution = event.data.solution;
+
   code = `PT1-${track.kind}-${track.difficulty}-${encodeURIComponent(track.seed)}`;
-  game = new Game(track, load<number>(`penalties:${code}`, 0));
+  duel = new Duel(
+    track,
+    load<number>(`penalties:${code}`, 0),
+    event.data.redTrack,
+  );
+  game = duel.player;
   screen();
 };
 function draw() {
@@ -161,11 +173,18 @@ function draw() {
       load("largeInk", false),
       game.started,
       game.crashPoint,
+      duel
+        ? {
+            path: duel.opponent.path,
+            start: duel.opponent.track.start,
+            finish: duel.opponent.track.finish,
+          }
+        : null,
     );
 }
 function screen() {
   shell(
-    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level}` : `Trudność ${track.difficulty}`}</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij czerwony START. <b>2.</b> Kliknij koniec odcinka. <b>Pion / poziom: dowolna długość. Przekątna: jedna kratka.</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><small>Wynik · mniej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów × <span id="clicks">0</span> kliknięć</p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość × liczba kliknięć rysujących odcinki. Kontakt z bandą kończy próbę: −${CRASH_PENALTY} pkt. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij czerwony punkt START.</p><div id="result"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/5 · szerokość ${track.width.toFixed(2)} kr. · ${track.stages - 1} bramek</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>Pion / poziom: dowolna długość. Przekątna: jedna kratka.</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · mniej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza ruch w przeciwnym kierunku. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
   button("menu", menu);
   button("undo", () => undo(1));
@@ -229,29 +248,40 @@ function screen() {
     canvas,
     point,
     (node) => {
-      if (!game) return;
-      const result = game.select(node);
+      if (!game || !duel) return;
+      const before = game.penaltyPoints;
+      const result = duel.select(node);
+      game = duel.player;
       invalid = [
         "need-start",
         "direction",
         "illegal",
         "crash",
         "crashed",
+        "crossing",
+        "reverse",
       ].includes(result);
       const messages = {
         start: "START wybrany. Kliknij koniec swojego pierwszego odcinka.",
+        turn: "Teraz ruch przeciwnika. Poczekaj na swoją turę.",
+        crossing: `Linie nie mogą się przecinać ani nakładać: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
+        reverse: `Po odbiciu ruch musi być przeciwny do poprzedniego: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
+        bounce:
+          "Odbicie! W następnej turze cofnij się dokładnie w przeciwnym kierunku po ostatnim odcinku.",
+        finished: "Pojedynek zakończony. Wybierz Restart albo następny tor.",
         move: "Segment dodany.",
         same: "To aktualny koniec trasy. Kliknij inny punkt.",
-        "need-start": "Najpierw kliknij czerwony punkt START.",
+        "need-start": "Najpierw kliknij niebieski punkt START.",
         direction:
-          "Długa prosta może być tylko pionowa lub pozioma. Przekątna ma najwyżej jedną kratkę.",
-        illegal: "Ten ruch omija wymaganą bramkę. Trasa nie została zmieniona.",
+          "Długa prosta może być tylko pionowa lub pozioma. Przekątna ma najwyżej jedną kratkę. −1 pkt i utrata tury.",
+        illegal: `Ten ruch omija wymaganą bramkę: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
         done: "Tor ukończony!",
         crash: `Wypadek! Dotknięcie bandy: −${CRASH_PENALTY} pkt. Rozpocznij ponowną próbę.`,
         crashed: "Próba zakończyła się wypadkiem. Kliknij Restart.",
       };
       status(messages[result]);
-      if (result === "crash") save(`penalties:${code}`, game.penaltyPoints);
+      if (game.penaltyPoints !== before)
+        save(`penalties:${code}`, game.penaltyPoints);
       update();
     },
     () => status("Klikaj pojedyncze punkty. Przeciąganie nie dodaje odcinków."),
@@ -266,7 +296,25 @@ function formatScore(value: number) {
   return value.toLocaleString("pl-PL", { maximumFractionDigits: 3 });
 }
 function update() {
-  if (!game) return;
+  if (!game || !duel) return;
+  game = duel.player;
+  document.querySelector("#opponent-score")!.textContent = formatScore(
+    duel.opponent.score,
+  );
+  document.querySelector("#opponent-length")!.textContent = formatScore(
+    duel.opponent.lengthSegments,
+  );
+  document.querySelector("#opponent-clicks")!.textContent = String(
+    duel.opponent.clicks,
+  );
+  document.querySelector("#turn")!.textContent = duel.winner
+    ? "Pojedynek zakończony"
+    : duel.turn === "player"
+      ? "Twoja tura — niebieski"
+      : "Tura przeciwnika — czerwony";
+  document.querySelector("#match-result")!.textContent = duel.winner
+    ? `${duel.winner === "draw" ? "Remis" : duel.winner === "player" ? "Wygrywasz!" : "Wygrywa przeciwnik."} ${duel.reason}. Ty: ${formatScore(game.score)}, AI: ${formatScore(duel.opponent.score)}.`
+    : "";
   document.querySelector("#score")!.textContent = formatScore(game.score);
   document.querySelector("#length-segments")!.textContent = formatScore(
     game.lengthSegments,
@@ -282,7 +330,7 @@ function update() {
     return;
   }
   if (game.done) {
-    const ratio = game.score / solution.score,
+    const ratio = game.score,
       stars =
         ratio <= STAR_THRESHOLDS[0] + 1e-9
           ? 3
@@ -290,42 +338,81 @@ function update() {
             ? 2
             : 1;
     const key = level ? `level-${level}` : code;
-    const saved = record(key, {
+    const saved =
+      recorded ||
+      record(key, {
         score: game.score,
         lengthSegments: game.lengthSegments,
         clicks: game.clicks,
         stars,
         level,
         penaltyPoints: game.penaltyPoints,
-      }),
-      best = load<Records>(RECORDS_KEY, {})[key];
+      });
+    recorded = saved;
+    const best = load<Records>(RECORDS_KEY, {})[key];
     document.querySelector("#result")!.innerHTML =
-      `<h2>Meta! ${"★".repeat(stars)}</h2><p>Wynik: <b>${formatScore(game.score)}</b> = ${formatScore(game.lengthSegments)} segmentów × ${game.clicks} kliknięć<br>Najmniejszy możliwy wynik: ${formatScore(solution.score)}<br>Rekord: ${best ? formatScore(best.score) : "—"}<br>Punkty karne: ${game.penaltyPoints} pkt</p><button id="again">Zagraj ponownie</button>${saved ? "" : "<p>Nie udało się zapisać rekordu.</p>"}`;
+      `<h2>Meta! ${"★".repeat(stars)}</h2><p>Wynik: <b>${formatScore(game.score)}</b> = ${formatScore(game.lengthSegments)} segmentów ÷ ${game.clicks} kliknięć<br>Rekord: ${best ? formatScore(best.score) : "—"}<br>Punkty karne: ${game.penaltyPoints} pkt</p><button id="again">Zagraj ponownie</button>${saved ? "" : "<p>Nie udało się zapisać rekordu.</p>"}`;
     button("again", reset);
   }
+  scheduleOpponent();
+}
+
+function scheduleOpponent() {
+  if (
+    !duel ||
+    duel.winner ||
+    duel.turn !== "opponent" ||
+    opponentTimer !== null
+  )
+    return;
+  const current = duel;
+  opponentTimer = setTimeout(
+    () => {
+      opponentTimer = null;
+      if (duel !== current) return;
+      duel.playOpponent();
+      game = duel.player;
+      if (duel.reverse.player)
+        status(
+          "Odbicie: następny ruch musi iść dokładnie przeciwnie do poprzedniego.",
+        );
+      update();
+    },
+    duel.player.done ? 50 : 350,
+  );
 }
 
 function undo(n: number) {
-  if (!game) return;
+  if (!game || !duel) return;
   if (game.crashed) {
     status("Wypadek zakończył próbę. Kliknij Restart. Kara pozostaje.");
     return;
   }
-  while (n--) game.undo();
+  cancelOpponent();
+  while (n--) duel.undo();
+  game = duel.player;
+  recorded = false;
   invalid = false;
   status(
     game.started
       ? "Kliknij koniec następnego odcinka."
-      : "Kliknij czerwony punkt START.",
+      : "Kliknij niebieski punkt START.",
   );
+  if (duel.reverse.player)
+    status(
+      "Odbicie: następny ruch musi iść dokładnie przeciwnie do poprzedniego.",
+    );
   document.querySelector("#result")!.innerHTML = "";
   update();
 }
 function reset() {
-  game?.clear();
+  cancelOpponent();
+  duel?.clear();
+  game = duel?.player;
+  recorded = false;
   invalid = false;
   document.querySelector("#result")!.innerHTML = "";
-  status("Kliknij czerwony punkt START.");
+  status("Kliknij niebieski punkt START.");
   update();
 }
 function next() {

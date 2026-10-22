@@ -1,104 +1,104 @@
-# Paper Track — Wyścig na kartce
+# Paper Track — pojedynek na kartce
 
-Gra logiczna PWA po polsku: znajdź trasę po torze narysowanym na kartce w kratkę. Bez pojazdów, fizyki i prędkości. TypeScript, Canvas, Vite, Vitest i Playwright; bez backendu.
+Logiczna gra PWA po polsku, bez pojazdów i fizyki. Gracz rysuje **niebieską**, a wirtualny przeciwnik **czerwoną** linię. Ruchy są naprzemienne, linie ograniczają sobie przejazd.
 
-## Zasady i sterowanie
+## Sterowanie
 
-1. Kliknij czerwony punkt **START**.
-2. Kliknij koniec odcinka na przecięciu siatki.
-3. W pionie albo poziomie odcinek może mieć **dowolną liczbę kratek**. Przekątna może pokonać **tylko jedną kratkę**.
-4. Na torze zamkniętym przejdź przez kolejne bramki w kolejności numerów i wróć do STARTU/METY. Na rajdzie dotrzyj do osobnej METY.
+Kliknij **niebieski START**, potem koniec odcinka na przecięciu siatki. Pionowo lub poziomo można pokonać dowolną liczbę kratek jednym kliknięciem. Przekątna może mieć tylko jedną kratkę. Na telefonie dotykaj kolejnych punktów. Przeciąganie nie rysuje. Podczas tury AI kliknięcia planszy nie wykonują ruchu i nie są karane.
 
-Każdy odcinek powstaje przez osobne kliknięcie albo dotknięcie, nie przez przeciąganie. Nie ma podświetlanych ruchów, podpowiedzi trasy ani przycisku pokazującego rozwiązanie. Numeracja bramek określa obowiązkową kolejność okrążenia, nie linię przejazdu.
+Przyciski + / − powiększają widok, strzałki przesuwają kartkę, „Dopasuj” przywraca całość. Nie ma podświetlania legalnych ruchów ani pokazywania rozwiązania. Numery bramek określają obowiązkową kolejność przejazdu.
 
-Cały odcinek musi mieścić się wewnątrz toru. **Dotknięcie bandy, przejście przez nią lub ścinanie przez wyspę to wypadek.** Próba kończy się i otrzymuje −5 pkt kary. Czerwony znak wskazuje pierwszy kontakt z bandą. Nie można anulować wypadku cofnięciem. Restart rozpoczyna nową próbę, ale kary na tym samym torze pozostają, również po ponownym otwarciu planszy.
+## Wynik to ILORAZ
 
-„Cofnij” usuwa cały ostatni narysowany odcinek, „Cofnij 5” usuwa kilka. Przeliczane są długość i kliknięcia pozostałej trasy. Przyciski + / − powiększają widok, strzałki przesuwają kartkę, „Dopasuj” przywraca całość. Na telefonie dotykaj kolejnych punktów; rysowanie nie przewija strony.
+**Wynik = długość trasy w jednostkowych segmentach ÷ liczba kliknięć rysujących odcinki. Mniejszy wynik wygrywa.**
 
-## Wynik — najmniejszy wygrywa
+Jedna kratka prosto lub po przekątnej ma długość 1. START nie zwiększa mnożnika. Nietrafione kliknięcia i przyciski interfejsu nie zwiększają licznika odcinków. Przed pierwszym odcinkiem wynik to 0, nie NaN lub nieskończoność.
 
-**Wynik = długość trasy w jednostkowych segmentach × liczba kliknięć rysujących odcinki.**
+Przykład: odcinki długości 5 i 3 narysowane dwoma kliknięciami dają **8 ÷ 2 = 4**. Ta sama długość narysowana ośmioma jednokratkowymi ruchami daje **8 ÷ 8 = 1**. Przy tych zasadach wiele krótkich ruchów poprawia iloraz, ale po każdym ruchu swoją turę dostaje przeciwnik, który może zablokować drogę.
 
-- Jedna kratka pionowo lub poziomo: 1 segment długości.
-- Jednokratkowa przekątna: również 1 segment długości.
-- Prosta przez 5 kratek: długość 5, narysowana jednym kliknięciem.
-- START nie jest liczony jako kliknięcie do wyniku.
-- Nietrafione kliknięcia, wybór tego samego punktu i przyciski interfejsu nie tworzą odcinków i nie zwiększają mnożnika.
+Gdy jeden gracz ukończy przejazd, drugi kończy swoje tury. Po obu przejazdach porównywane są ilorazy; przy remisie decyduje mniejsza kara (0 pkt przed −1 pkt), a potem jest remis. Zakończony przejazd gracza zapisuje rekord lokalny. Gwiazdki porównują iloraz do matematycznej dolnej granicy 1: do 1,02 — ★★★, do 1,10 — ★★, powyżej — ★. Nie są prognozą wygranej przeciw poruszającemu się AI.
 
-Przykład: odcinki o długościach 5 i 3 narysowane dwoma kliknięciami dają **(5 + 3) × 2 = 16**. Ta sama trasa podzielona na osiem jednokratkowych odcinków daje **8 × 8 = 64**.
+Nowe rekordy mają przestrzeń `records-quotient-duel-v1`, oddzielną od poprzednich wyników iloczynu. Punkty karne są prezentowane osobno; nie odejmuje się ich od ilorazu, co premiowałoby karane ruchy.
 
-Punkty karne są prezentowane osobno od iloczynu. Próba zakończona wypadkiem nie zapisuje wyniku jako ukończonego toru. Kary nie obniżają iloczynu, co byłoby premią przy zasadzie „najmniejszy wygrywa”.
+## Linie i odbicie
 
-Rekord aktualizuje się przy niższym iloczynie; przy remisie preferowana jest mniejsza kara (np. 0 pkt przed −5 pkt). Nowe rekordy mają osobną przestrzeń zapisu `records-product-v1`; dawnych rekordów długości nie porównuje się z iloczynem. Po ukończeniu widać oba składniki, wynik, rekord i minimalny możliwy wynik. Nie jest pokazywana optymalna linia.
+Nie wolno przecinać czerwonej ani własnej wcześniejszej linii, również między węzłami siatki. Zabronione jest nakładanie odcinków. Kolejne własne odcinki mogą mieć wspólny punkt początku/końca.
 
-Progi gwiazdek w `STAR_THRESHOLDS`, `src/game/index.ts`:
+Można **zakończyć odcinek w punkcie zajętym przez przeciwnika**, także na środku jego długiej prostej. Jest to odbicie, a nie przecięcie. W swojej następnej turze trzeba wykonać ruch **dokładnie w przeciwnym kierunku**, nie dalej niż długość własnego odcinka, którym dojechano do kontaktu. Jedynym wyjątkiem od zakazu nakładania jest to obowiązkowe cofnięcie po własnym ostatnim odcinku. Potem można odejść w inną stronę. Nie można przejechać przez zajęty punkt i pojechać dalej.
 
-| Ocena | Wynik względem minimalnego iloczynu |
-| ----- | ----------------------------------- |
-| ★★★   | do 102% włącznie                    |
-| ★★    | do 110% włącznie                    |
-| ★     | powyżej 110%, poprawne ukończenie   |
+Zamknięcie pełnego okrążenia może dotknąć własnego STARTU/METY. Odcinek kończący poprawny przejazd kończy obowiązek ruchu tego gracza. Każdy gracz ma osobny start; na rajdzie także osobną metę.
 
-Definicja długości i sposób liczenia STARTU są zapisane w `src/game/scoring.ts`. Kara za wypadek to `CRASH_PENALTY` w `src/game/index.ts`.
+## Kary i cofanie
 
-## Tryby
+- **Banda: −5 pkt i przegrany pojedynek.** Sprawdzany jest cały odcinek, końce, styczność i pokrywanie z bandą. Czerwony znak wskazuje pierwszy kontakt.
+- **Nielegalny ruch: −1 pkt i utrata tury.** Dotyczy długiej przekątnej, nieprawidłowego kierunku, przecięcia/nakładania linii, pominięcia wymaganej bramki lub złamania obowiązkowego odbicia. Linia gracza nie jest wtedy dodawana; AI wykonuje swoją turę.
+- Brak jakiegokolwiek legalnego ruchu przegrywa pojedynek. Limit tur zabezpiecza przed niekończącą się partią.
+- Wybór STARTU, kliknięcie aktualnego końca, anulowany gest i kliknięcia podczas oczekiwania na AI nie są karane.
 
-Losowe tory: żużlowy, samochodowy lub rajdowy, pięć trudności. Kod `PT1-typ-trudność-seed` oraz link z fragmentem URL odtwarzają planszę. Kampania ma 100 stałych poziomów, od szerokich owali do węższych tras z nawrotami. Poziomy można ćwiczyć bez blokad; gwiazdki zapisują postęp. Ustawienia i rekordy są lokalne dla urządzenia i originu.
+„Cofnij” odtwarza stan sprzed ostatniej akcji gracza, razem z odpowiedzią AI. „Cofnij 5” cofa kilka takich akcji. Kary pozostają naliczone. Wypadku nie można cofnąć. Restart przywraca oba starty i pierwszą turę, zachowując kary na tym torze. Są one zapisywane także po ponownym otwarciu planszy.
 
-## Gotowy plik do otwarcia dwuklikiem
+## Kampania i przeciwnik
 
-Pobierz `downloads/PaperTrack.html` i otwórz w Chrome/Edge. Działa bez serwera, Node.js i internetu. `downloads/PaperTrack-gotowa-gra.zip` zawiera HTML, instrukcję i pełne źródła. Na iPhone/iPad instalacja PWA wymaga wersji hostowanej przez HTTPS; samo otwarcie pobranego HTML w systemowym podglądzie plików nie zastępuje instalacji webowej.
+Kampania ma 100 deterministycznych poziomów. W ekranie gry widać trudność, szerokość oraz liczbę bramek.
 
-## Lokalnie i testy
+| Poziomy | Zmiana trudności                                                                  |
+| ------- | --------------------------------------------------------------------------------- |
+| 1–10    | łagodne owale, mniej bramek, AI dopuszcza dłuższe proste                          |
+| 11–25   | więcej łuków, tory samochodowe i rajdowe                                          |
+| 26–50   | nawrót i bardziej kręte rajdy                                                     |
+| 51–75   | dwa nawroty w torach samochodowych, więcej bramek, krótsze ruchy AI               |
+| 76–100  | najwęższe konfiguracje, silniejsze zakręty rajdowe, AI stawia jednostkowe odcinki |
 
-Wymagany Node.js 24 i npm 11:
+Szerokość nominalna maleje na **każdym** poziomie: od 6,30 do 4,00 kratek. Domyślne tory są co najmniej 10% węższe od poprzedniej wersji; przeskalowano także margines geometryczny. Zawężenie nie omija walidacji szerokości, spójności i pełnego przejazdu. Oba osobne starty są sprawdzane pod kątem przejezdności. Nie oznacza to gwarantowanej wygranej — blokowanie drogi jest częścią pojedynku.
+
+AI planuje po legalnym grafie, uwzględnia bramki, aktualne linie obu graczy i obowiązek odbicia. Nie wykonuje ruchów przez bandę ani przez zajęte odcinki. Wybór długości prostych zależy od trudności i deterministycznego seeda partii.
+
+Tryb losowy ma trzy typy torów i pięć trudności. Kod `PT1-typ-trudność-seed` odtwarza planszę według bieżącej wersji zasad. W kampanii używane są seedy `kampania-v2-numer`.
+
+## Gotowa gra do pobrania
+
+`downloads/PaperTrack.html` działa po otwarciu dwuklikiem w Chrome/Edge, bez internetu i instalowania Node.js. ZIP `downloads/PaperTrack-gotowa-gra.zip` zawiera HTML, instrukcję i pełne źródła. Na iPhone/iPad instalacja PWA wymaga wersji hostowanej przez HTTPS; podgląd pobranego pliku nie zastępuje instalacji webowej.
+
+## Rozwój i testowanie
+
+Wymagane Node.js 24 i npm 11:
 
 ```sh
 npm ci
 npm run dev
-```
-
-Aplikacja ma bazę `/PaperTrack/`. Walidacja i produkcja:
-
-```sh
 npm run lint
 npm test
 npm run build
 npm run preview
 ```
 
-`lint` uruchamia ESLint i TypeScript strict. Testy obejmują 1000 seedów dla każdego typu, pełną kampanię, ścisłą geometrię bez kontaktu z bandami, długie proste, przekątne, kary, cofanie, zapis rekordów i dokładne optimum iloczynu. Niezależne przykłady sprawdzają, że solver prawidłowo rozstrzyga kompromis między krótszą trasą a mniejszą liczbą kliknięć.
+Baza aplikacji: `/PaperTrack/`. Lint uruchamia ESLint i TypeScript strict. Testy obejmują po 1000 seedów każdego typu, 100 poziomów, przejezdność obu startów, progresję szerokości, geometrię, iloraz, tury, odbicie, przecięcia, blokadę, AI, zwycięzcę, kary, cofanie i zapis rekordów.
 
 ```sh
 npx playwright install --with-deps chromium webkit
 npm run test:e2e
 ```
 
-E2E uruchamia produkcyjny build i testuje desktop Chromium oraz profile iPhone/iPad w WebKit: ukończenie, iloczyn, rekordy, offline, kampanię, orientację, brak podpowiedzi, długie odcinki, wypadki, trwałość kar, anulowanie gestu, cofanie, powiększanie i przesuwanie. `SYSTEM_CHROMIUM=1 npm run test:e2e` to wariant z systemowym `/usr/bin/chromium`; emuluje mobilny rozmiar, ale nie testuje WebKit.
+E2E testuje desktop Chromium oraz profile iPhone/iPad w WebKit: pełny pojedynek, ilorazy obu graczy, zmianę tur, odbicie, utratę tury, karę i wypadek, oba ukończenia, rekordy, offline, kampanię i skalowanie. Wariant `SYSTEM_CHROMIUM=1 npm run test:e2e` korzysta wyłącznie z systemowego Chromium i nie zastępuje testów WebKit.
 
-Odtworzenie plików do pobrania po zmianach (wymagany także Python 3):
+Odświeżenie plików do pobrania (wymaga także Python 3):
 
 ```sh
 npm run package
 ```
 
-Eksport osadza CSS, kod i generator jako klasyczny Blob Worker w jednym HTML. ZIP zawiera aktualne źródła, pomija starsze paczki, node_modules i dist.
+## Architektura i PWA
 
-## Architektura
+- `src/game/duel.ts`: tury, osobne starty/mety, legalność kontaktu między liniami, odbicie, planowanie AI, wynik pojedynku i historia całych tur.
+- `src/game/index.ts`: pojedynczy przejazd, długie proste, bramki pośrednie, banda, długość i kliknięcia.
+- `src/game/scoring.ts`: iloraz i koszt przekątnej 1.
+- `src/geometry`: analityczna geometria, pierwszy kontakt z bandą i dokładne przecięcia/nałożenia linii.
+- `src/generator`: oś, granice, kontrola topologii/szerokości, graf i przejezdność. Bramki wynikają z rzutowania na odcinki osi oraz jej długości łukowej, nie z nieregularnej gęstości punktów łuków. Najwyżej pięć prób i zweryfikowany wariant zapasowy.
+- `src/solver`: Dijkstra do walidacji przejazdu. Każda jednostkowa trasa ma iloraz 1; nie stosuje się starego solvera iloczynu ani nie obiecuje optimum przeciw dynamicznemu AI.
+- `src/input`, `src/rendering`, `src/storage`: kliknięcia/touch, Canvas HiDPI bez podpowiedzi, osobne rekordy i kary.
 
-- `src/geometry`: analityczne sprawdzanie całych odcinków i pierwszego kontaktu z granicą. Obejmuje styczność, końce odcinka i pokrywanie z bandą. Legalne końce nie wystarczają, jeśli odcinek przechodzi poza torem.
-- `src/generator`: deterministyczna oś i granice; owale z dwiema prostymi, tory samochodowe z łukami i nawrotami, rajdy z falującym korytarzem. Minimalna szerokość domyślna 4 kratki. Walidacja samoprzecięć, szerokości, spójności i pełnego przejazdu przez bramki. Maksymalnie pięć prób, potem zweryfikowany wariant zapasowy.
-- Graf generatora zawiera jednostkowe ruchy, które **nie dotykają żadnej bandy**. Długa prosta sprawdza całą geometrię i postęp każdej pośredniej bramki, ale zapisuje jeden narysowany odcinek.
-- `src/solver`: Dijkstra do weryfikacji przejezdności oraz dokładne wyszukiwanie etykiet Pareto do minimalizacji **długość × kliknięcia**. Stan obejmuje węzeł, bramki i ostatni kierunek. Przedłużenie tej samej prostej zwiększa długość, ale nie kliknięcia. Każda przekątna wymaga nowego kliknięcia. Zachowywane są niedominowane pary długość/kliknięcia; jedna „najlepsza długość” na węzeł nie wystarcza do tego celu.
-- `src/game`: rozgrywka, atomowa kontrola długich ruchów, wypadki, kary i cofanie.
-- `src/input`: pojedyncze kliknięcia/dotknięcia, bez rysowania przy przeciąganiu.
-- `src/rendering`: Canvas HiDPI z siatką, linią gracza i oznaczeniem wypadku; bez podpowiedzi ruchów.
-- `src/storage`: osobne rekordy iloczynu oraz zapis kar; obsługa niedostępnej pamięci.
+Generowanie działa w Web Workerze. AI uruchamia się tylko podczas swojej tury. Renderowanie odbywa się po zmianach, bez ciągłej pętli 60 FPS. Reset, cofanie i menu anulują oczekującą odpowiedź AI.
 
-Generowanie i optymalizacja działają w Web Workerze. Renderowanie odbywa się po zmianach, bez stałej pętli 60 FPS.
+Manifest, ikony 192/512 px, service worker i cache umożliwiają instalację i grę offline po pierwszym pełnym wczytaniu. Układ obsługuje safe areas, orientacje i kwadratową siatkę. Fizycznych urządzeń iOS nie testowano.
 
-## PWA i GitHub Pages
-
-Manifest zawiera ikony 192/512 px i tryb standalone. Service worker przechowuje wszystkie zasoby aktualnego buildu, w tym Worker generatora; offline działa po pełnej aktywacji. W Safari wybierz Udostępnij → Do ekranu początkowego, w Chrome/Edge — Zainstaluj aplikację. Układ uwzględnia safe areas i orientację, kratki pozostają kwadratowe. Nie wykonano testów na fizycznym iPhonie/iPadzie.
-
-Workflow `.github/workflows/pages.yml` uruchamia instalację, lint, testy, build, E2E i publikację `dist`. Pull requesty nie publikują. Ustaw w GitHub **Settings → Pages → Source → GitHub Actions**, następnie wyślij `main` albo uruchom workflow. Adres zwraca udany job `deploy`; sam build nie potwierdza publikacji. Baza Vite, manifest i zakres service workera to `/PaperTrack/`.
+Workflow `.github/workflows/pages.yml` uruchamia instalację, lint, testy, build, E2E i publikację `dist`. W GitHub wymagane jest **Settings → Pages → Source → GitHub Actions**. Sukces buildu nie dowodzi publikacji; potwierdza ją job `deploy`. Pull requesty nie publikują.

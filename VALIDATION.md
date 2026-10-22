@@ -44,3 +44,17 @@ Usunięto podświetlenia i pokazywanie rozwiązania. Samo dotknięcie bandy, tak
 - Optimum iloczynu liczy dokładny solver etykiet Pareto (długość, kliknięcia), z kierunkiem i bramkami w stanie; nie jest estymowane na podstawie starej długości ani minimalnej liczby odcinków.
 
 Ograniczenie pozostaje bez zmian: brak testów na fizycznych urządzeniach iOS.
+
+## Iloraz, czerwony przeciwnik, odbicie i progresja kampanii
+
+Aktualna punktacja to **długość ÷ kliknięcia**, nie iloczyn. START nie jest liczony; przekątna ma długość 1. Niebieski gracz i czerwone AI grają naprzemiennie. Zakazane są przecięcia między węzłami, przechodzenie przez zajęte punkty i nakładanie linii. Zakończenie ruchu na punkcie przeciwnika wymusza odbicie; jedynym dopuszczonym nałożeniem jest obowiązkowe cofnięcie po własnym ostatnim odcinku. Po obu ukończeniach porównywane są ilorazy; blokada lub wypadek przegrywa pojedynek.
+
+Nielegalny kierunek, przecięcie, pominięcie bramki lub złe odbicie: **−1 pkt i utrata tury**. Banda: **−5 pkt i przegrana**. Cofanie odtwarza obie strony tury, ale nie anuluje kar. AI nie wykonuje tur po zakończeniu meczu ani po wyjściu do menu.
+
+Domyślne szerokości i marginesy zmniejszono o 10%. Kampania zwęża się monotonicznie od 6,30 do 4,00 kratek; trudniejsze tory samochodowe otrzymały drugi nawrót, rajdy większą krętość, zwiększono liczbę bramek i skrócono ruchy AI na wyższych trudnościach. Naprawiono rozmieszczenie bramek: progres jest liczony względem rzutu na odcinki osi i długości łukowej. Trudne plansze z dwoma nawrotami przechodzą walidację zamiast wracać do prostego wariantu zapasowego.
+
+- `npm test`: **31/31**, 149,31 s. W tym 3000 seedów, 100 poziomów z dwoma osobnymi przejezdnymi startami, monotoniczna szerokość, rzeczywista zmiana geometrii/bramek, tury, przecięcia, odbicie i wyjątek powrotu, niedozwolone nakładanie, wypadek, blokada, zwycięzca i cofanie z zachowaniem kar.
+- Pełne E2E Chromium + iPhone/iPad w WebKit: **21/21**, 44,8 s. Pełne przejazdy obu stron, niższy iloraz jako zwycięzca, rekordy, oba kolory, offline z działającym AI, kara i utrata tury, odbicie, trwałość kar, kampania, orientacja i współrzędne po powiększeniu/przesunięciu.
+- Nadal bez testów na fizycznym iPhonie/iPadzie. Testy WebKit są testami przeglądarkowymi.
+
+Dodatkowo sprawdzono następujące po sobie odbicia: wolno cofnąć się w obrębie własnego ostatniego odcinka także wtedy, gdy pod nim znajduje się wcześniejsza kopia linii z poprzedniego odbicia. Nowy test regresji oraz ponowne 12/12 testów pojedynku przeszły; ponowiono też scenariusz odbicia w trzech profilach przeglądarkowych (3/3). Obecny zestaw zawiera 32 testy logiki. Samodzielny HTML sprawdzono offline w Chromium i WebKit: oba kolory, pełne przejazdy, zwycięzca według ilorazu, odbicie, kara i utrata tury.

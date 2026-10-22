@@ -105,6 +105,12 @@ export class Game {
     this.stages.push(stage);
     return "move";
   }
+  fork(): Game {
+    const copy = Object.assign(Object.create(Game.prototype) as Game, this);
+    copy.path = [...this.path];
+    copy.stages = [...this.stages];
+    return copy;
+  }
   move(next: number) {
     if (!this.track.nodes[next]) return false;
     // Retain the low-level traversal API, while applying the same collision rules.

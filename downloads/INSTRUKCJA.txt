@@ -1,14 +1,16 @@
-PAPER TRACK — DŁUGIE PROSTE I WYNIK = DŁUGOŚĆ × KLIKNIĘCIA
+PAPER TRACK — POJEDYNEK, ILORAZ = DŁUGOŚĆ ÷ KLIKNIĘCIA
 
 1. Otwórz PaperTrack.html dwuklikiem w Chrome lub Edge.
 2. Wybierz Nowa gra albo Kampania.
-3. Kliknij czerwony punkt START.
+3. Kliknij niebieski punkt START. Ty jesteś niebieski, wirtualny przeciwnik czerwony. Ruchy są naprzemienne.
 4. Kliknij koniec odcinka: pionowo lub poziomo na dowolną liczbę kratek; po przekątnej tylko o jedną kratkę.
-5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości × kliknięcia rysujące odcinki. START nie jest liczony. Najmniejszy wynik wygrywa.
-6. Nie ma podpowiedzi. Dotknięcie bandy kończy próbę i daje -5 pkt kary; kara pozostaje po restarcie.
+5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości ÷ kliknięcia rysujące odcinki. START nie jest liczony. Najmniejszy wynik wygrywa.
+6. Nie ma podpowiedzi. Banda: -5 pkt i przegrana. Nielegalny ruch: -1 pkt i utrata tury. Kary pozostają po restarcie.
+7. Linie nie mogą się przecinać ani nakładać. Możesz dojechać do zajętego punktu przeciwnika, ale potem musisz cofnąć się dokładnie w przeciwnym kierunku po swoim ostatnim odcinku (wyjątek odbicia).
+8. Po obu ukończonych przejazdach wygrywa niższy iloraz; przy remisie decydują kary. Zablokowany gracz przegrywa. Poziomy stopniowo zwężają się, mają więcej nawrotów i bramek oraz trudniejsze AI.
 
 Nie przeciągaj myszy. Na telefonie dotykaj kolejnych punktów. Przyciskiem + powiększysz planszę.
-Cofnij usuwa ostatni odcinek, Cofnij 5 usuwa kilka, Restart rozpoczyna próbę od nowa.
+Cofnij cofa ostatnią akcję gracza i odpowiedź AI, Cofnij 5 cofa kilka tur, Restart rozpoczyna próbę od nowa.
 
 Gra HTML działa bez internetu, bez Node.js i bez serwera.
 ZIP zawiera także pełne źródła w folderze kod-zrodlowy. W tym folderze: npm ci, następnie npm run dev (Node.js 24).

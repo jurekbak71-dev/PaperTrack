@@ -8,4 +8,4 @@ export const segmentLength = (a: Point, b: Point) =>
     ? SCORE_RULES.diagonalLength
     : Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 export const scoreOf = (length: number, clicks: number) =>
-  length * (clicks + (SCORE_RULES.countStartClick ? 1 : 0));
+  clicks > 0 ? length / (clicks + (SCORE_RULES.countStartClick ? 1 : 0)) : 0;

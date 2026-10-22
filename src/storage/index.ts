@@ -24,7 +24,7 @@ export function save(key: string, value: unknown) {
     return false;
   }
 }
-export const RECORDS_KEY = "records-product-v1";
+export const RECORDS_KEY = "records-quotient-duel-v1";
 export function record(code: string, result: Records[string]) {
   const records = load<Records>(RECORDS_KEY, {}),
     old = records[code];

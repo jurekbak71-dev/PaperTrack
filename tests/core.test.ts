@@ -90,8 +90,8 @@ describe("geometria", () => {
     });
     record("a", {
       score: 10,
-      lengthSegments: 5,
-      clicks: 2,
+      lengthSegments: 10,
+      clicks: 1,
       stars: 3,
       level: 0,
       penaltyPoints: 0,
@@ -123,7 +123,7 @@ for (const kind of ["oval", "circuit", "rally"] as Kind[])
       const t = generate(String(seed), kind, 1 + (seed % 5));
       fallbacks += Number(t.fallback);
       forms.add(JSON.stringify(t.outer));
-      expect(t.width).toBeGreaterThanOrEqual(4);
+      expect(t.width).toBeGreaterThanOrEqual(3.6);
       expect(minimumWidth(t)).toBeGreaterThanOrEqual(t.width - 1e-6);
       expect(validate(t)).toBe(true);
       expect(t.nodes.length).toBeGreaterThan(100);

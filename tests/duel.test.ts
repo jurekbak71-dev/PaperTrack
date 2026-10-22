@@ -1,0 +1,259 @@
+import { it, expect } from "vitest";
+import { Duel, opponentTrack, ILLEGAL_PENALTY } from "../src/game/duel";
+import { Game } from "../src/game";
+import {
+  campaign,
+  generate,
+  defaultWidth,
+  TRACK_WIDTH_SCALE,
+  type Track,
+} from "../src/generator";
+import { segmentClear, segmentIntersection, type Point } from "../src/geometry";
+import { solve } from "../src/solver";
+function arena(): Track {
+  const nodes: Point[] = [],
+    outer = [
+      { x: 0, y: 0 },
+      { x: 12, y: 0 },
+      { x: 12, y: 8 },
+      { x: 0, y: 8 },
+    ];
+  for (let y = 1; y < 8; y++) for (let x = 1; x < 12; x++) nodes.push({ x, y });
+  const edges = nodes.map((a) =>
+    nodes.flatMap((b, i) =>
+      Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) === 1 &&
+      segmentClear(a, b, outer, [])
+        ? [i]
+        : [],
+    ),
+  );
+  const node = (x: number, y: number) =>
+    nodes.findIndex((p) => p.x === x && p.y === y);
+  return {
+    seed: "arena",
+    kind: "rally",
+    difficulty: 1,
+    width: 4,
+    outer,
+    hole: [],
+    nodes,
+    edges,
+    regions: nodes.map((p) => (p.x >= 10 ? 1 : 0)),
+    start: node(2, 2),
+    finish: node(10, 2),
+    stages: 2,
+    center: [],
+    size: 12,
+    fallback: false,
+  };
+}
+const id = (t: Track, x: number, y: number) =>
+  t.nodes.findIndex((p) => p.x === x && p.y === y);
+function match() {
+  const t = arena();
+  return new Duel(t, 0, { ...t, start: id(t, 2, 4), finish: id(t, 10, 4) });
+}
+function setPath(g: Game, points: Point[]) {
+  g.path = points.map((p) => id(g.track, p.x, p.y));
+  g.stages = g.path.map(() => 0);
+  g.started = true;
+}
+it("odróżnia przecięcie, styczność i pokrywanie odcinków", () => {
+  expect(
+    segmentIntersection(
+      { x: 2, y: 2 },
+      { x: 3, y: 3 },
+      { x: 2, y: 3 },
+      { x: 3, y: 2 },
+    ),
+  ).toEqual({ kind: "point", point: { x: 2.5, y: 2.5 } });
+  expect(
+    segmentIntersection(
+      { x: 1, y: 2 },
+      { x: 5, y: 2 },
+      { x: 3, y: 2 },
+      { x: 6, y: 2 },
+    )?.kind,
+  ).toBe("overlap");
+  expect(
+    segmentIntersection(
+      { x: 1, y: 1 },
+      { x: 2, y: 1 },
+      { x: 3, y: 1 },
+      { x: 4, y: 1 },
+    ),
+  ).toBeNull();
+});
+it("oddzielne starty i naprzemienne tury; brak ruchu gracza w turze AI", () => {
+  const m = match();
+  expect(m.player.last).not.toBe(m.opponent.last);
+  expect(m.select({ x: 2, y: 2 })).toBe("start");
+  expect(m.turn).toBe("player");
+  expect(m.select({ x: 3, y: 2 })).toBe("move");
+  expect(m.turn).toBe("opponent");
+  expect(m.select({ x: 4, y: 2 })).toBe("turn");
+  expect(m.player.clicks).toBe(1);
+  expect(m.playOpponent()).toMatch(/move|bounce/);
+  expect(m.opponent.clicks).toBe(1);
+  expect(m.turn).toBe("player");
+});
+it("przecięcie czerwonej linii odrzuca ruch i kosztuje punkt oraz turę", () => {
+  const m = match();
+  setPath(m.player, [{ x: 2, y: 3 }]);
+  setPath(m.opponent, [
+    { x: 6, y: 1 },
+    { x: 6, y: 5 },
+  ]);
+  expect(m.select({ x: 10, y: 3 })).toBe("crossing");
+  expect(m.player.clicks).toBe(0);
+  expect(m.player.penaltyPoints).toBe(-ILLEGAL_PENALTY);
+  expect(m.turn).toBe("opponent");
+});
+it("wejście na punkt czerwonej linii wymusza dokładny powrót; wyjątek cofnięcia nie pozwala nakładać dalszych linii", () => {
+  const m = match();
+  setPath(m.player, [{ x: 2, y: 3 }]);
+  setPath(m.opponent, [
+    { x: 6, y: 1 },
+    { x: 6, y: 5 },
+  ]);
+  expect(m.select({ x: 6, y: 3 })).toBe("bounce");
+  expect(m.reverse.player).toEqual({ x: -1, y: 0, limit: 4 });
+  m.playOpponent();
+  expect(m.select({ x: 6, y: 4 })).toBe("reverse");
+  expect(m.player.penaltyPoints).toBe(-1);
+  m.playOpponent();
+  expect(m.select({ x: 5, y: 3 })).toBe("move");
+  expect(m.reverse.player).toBeNull();
+  m.playOpponent();
+  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("crossing");
+  expect(m.preview("player", { x: 5, y: 4 }).result).toBe("move");
+});
+it("nie wolno przeciąć przekątnych ani własnej wcześniejszej linii", () => {
+  const m = match();
+  setPath(m.player, [{ x: 2, y: 2 }]);
+  setPath(m.opponent, [
+    { x: 2, y: 3 },
+    { x: 3, y: 2 },
+  ]);
+  expect(m.preview("player", { x: 3, y: 3 }).result).toBe("crossing");
+  setPath(m.player, [
+    { x: 2, y: 2 },
+    { x: 6, y: 2 },
+    { x: 6, y: 5 },
+    { x: 4, y: 5 },
+  ]);
+  setPath(m.opponent, [{ x: 10, y: 6 }]);
+  expect(m.preview("player", { x: 4, y: 1 }).result).toBe("crossing");
+});
+it("zamknięcie pełnego okrążenia może dotknąć własnego startu", () => {
+  const t = arena(),
+    m = new Duel(
+      {
+        ...t,
+        kind: "oval",
+        stages: 1,
+        regions: t.nodes.map(() => 0),
+        finish: t.start,
+      },
+      0,
+      { ...t, start: id(t, 10, 4), finish: id(t, 10, 4) },
+    );
+  setPath(m.player, [
+    { x: 2, y: 2 },
+    { x: 6, y: 2 },
+    { x: 6, y: 5 },
+    { x: 2, y: 5 },
+  ]);
+  m.player.stages = [0, 0, 1, 1];
+  expect(m.preview("player", { x: 2, y: 2 }).result).toBe("move");
+});
+it("nielegalny kierunek traci turę; cofanie pary tur zachowuje naliczoną karę", () => {
+  const m = match();
+  m.select({ x: 2, y: 2 });
+  expect(m.select({ x: 4, y: 4 })).toBe("direction");
+  expect(m.player.penaltyPoints).toBe(-1);
+  m.playOpponent();
+  expect(m.undo()).toBe(true);
+  expect(m.opponent.clicks).toBe(0);
+  expect(m.player.penaltyPoints).toBe(-1);
+  expect(m.turn).toBe("player");
+  m.clear();
+  expect(m.player.penaltyPoints).toBe(-1);
+});
+it("wypadek daje przeciwnikowi zwycięstwo; AI nie wykonuje ruchów po końcu meczu", () => {
+  const m = match();
+  m.select({ x: 2, y: 2 });
+  expect(m.select({ x: 0, y: 2 })).toBe("crash");
+  expect(m.winner).toBe("opponent");
+  expect(m.player.penaltyPoints).toBe(-5);
+  expect(m.playOpponent()).toBe("finished");
+  expect(m.undo()).toBe(false);
+});
+it("po ukończeniu obu przejazdów wygrywa niższy iloraz", () => {
+  const m = match();
+  m.select({ x: 2, y: 2 });
+  let safety = 0;
+  for (let x = 3; x <= 10; x++) {
+    expect(m.select({ x, y: 2 })).toBe("move");
+    while (m.turn === "opponent" && !m.winner) {
+      m.playOpponent();
+      expect(++safety).toBeLessThan(50);
+    }
+  }
+  expect(m.player.done).toBe(true);
+  expect(m.opponent.done).toBe(true);
+  expect(m.player.score).toBe(1);
+  expect(m.winner).toBe(m.opponent.score === 1 ? "draw" : "player");
+});
+it("blokada przeciwnika kończy mecz", () => {
+  const m = match();
+  m.turn = "opponent";
+  m.opponent.track = {
+    ...m.opponent.track,
+    edges: m.opponent.track.edges.map(() => []),
+  };
+  expect(m.playOpponent()).toBe("finished");
+  expect(m.winner).toBe("player");
+});
+it("100 poziomów: oba starty przejezdne, malejąca szerokość, więcej zakrętów i bramek", () => {
+  let previous = Infinity;
+  for (let l = 1; l <= 100; l++) {
+    const t = campaign(l),
+      red = opponentTrack(t);
+    expect(t.width).toBeLessThanOrEqual(previous + 1e-8);
+    previous = t.width;
+    expect(t.width).toBeLessThanOrEqual(
+      Math.max(4, 7 - Math.floor(t.difficulty / 2)) * 0.9 + 1e-8,
+    );
+    expect(red.start).not.toBe(t.start);
+    expect(red.finish).not.toBe(t.finish);
+    expect(solve(red).path.length).toBeGreaterThan(1);
+  }
+  expect(campaign(80).center.length).toBeGreaterThan(
+    campaign(40).center.length,
+  );
+  expect(campaign(80).stages).toBeGreaterThan(campaign(10).stages);
+  expect(TRACK_WIDTH_SCALE).toBe(0.9);
+  expect(defaultWidth(1)).toBe(6.3);
+  expect(generate("w", "oval", 5).width).toBe(4.5);
+}, 120000);
+
+it("kolejne odbicia pozwalają wrócić po ostatnim odcinku także nad wcześniejszą kopią własnej linii", () => {
+  const m = match();
+  setPath(m.player, [{ x: 2, y: 3 }]);
+  setPath(m.opponent, [
+    { x: 6, y: 1 },
+    { x: 6, y: 4 },
+    { x: 4, y: 4 },
+  ]);
+  expect(m.select({ x: 6, y: 3 })).toBe("bounce");
+  const red = m.preview("opponent", { x: 4, y: 3 });
+  expect(red.result).toBe("bounce");
+  m.opponent = red.game;
+  m.reverse.opponent = red.bounce;
+  m.turn = "player";
+  expect(m.select({ x: 4, y: 3 })).toBe("bounce");
+  m.playOpponent();
+  expect(m.turn).toBe("player");
+  expect(m.select({ x: 5, y: 3 })).toBe("move");
+});

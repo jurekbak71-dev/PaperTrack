@@ -103,3 +103,43 @@ export function segmentClear(
     boundaryContact(a, b, [outer, hole]) === null
   );
 }
+
+export const samePoint = (a: Point, b: Point) =>
+  Math.abs(a.x - b.x) < 1e-8 && Math.abs(a.y - b.y) < 1e-8;
+export function segmentIntersection(
+  a: Point,
+  b: Point,
+  c: Point,
+  d: Point,
+): { kind: "point"; point: Point } | { kind: "overlap" } | null {
+  const r = sub(b, a),
+    s = sub(d, c),
+    rr = r.x * r.x + r.y * r.y,
+    ss = s.x * s.x + s.y * s.y,
+    den = cross(r, s),
+    q = sub(c, a);
+  if (rr < 1e-12) {
+    if (ss < 1e-12) return samePoint(a, c) ? { kind: "point", point: a } : null;
+    const u = ((a.x - c.x) * s.x + (a.y - c.y) * s.y) / ss;
+    return Math.abs(cross(sub(a, c), s)) < 1e-8 && u >= -1e-8 && u <= 1 + 1e-8
+      ? { kind: "point", point: a }
+      : null;
+  }
+  if (ss < 1e-12) return segmentIntersection(c, d, a, b);
+  if (Math.abs(den) > 1e-10) {
+    const t = cross(q, s) / den,
+      u = cross(q, r) / den;
+    return t >= -1e-8 && t <= 1 + 1e-8 && u >= -1e-8 && u <= 1 + 1e-8
+      ? { kind: "point", point: { x: a.x + t * r.x, y: a.y + t * r.y } }
+      : null;
+  }
+  if (Math.abs(cross(q, r)) > 1e-8) return null;
+  const t1 = (q.x * r.x + q.y * r.y) / rr,
+    t2 = ((d.x - a.x) * r.x + (d.y - a.y) * r.y) / rr,
+    lo = Math.max(0, Math.min(t1, t2)),
+    hi = Math.min(1, Math.max(t1, t2));
+  if (hi < lo - 1e-8) return null;
+  return hi - lo > 1e-8
+    ? { kind: "overlap" }
+    : { kind: "point", point: { x: a.x + lo * r.x, y: a.y + lo * r.y } };
+}

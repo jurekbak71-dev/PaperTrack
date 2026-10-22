@@ -9,6 +9,7 @@ export function render(
   contrast = false,
   started = false,
   crashPoint: { x: number; y: number } | null = null,
+  red: { path: number[]; start: number; finish: number } | null = null,
 ) {
   const rect = canvas.getBoundingClientRect(),
     dpr = Math.min(devicePixelRatio || 1, 3);
@@ -58,7 +59,9 @@ export function render(
   c.font = contrast ? "1.2px cursive" : ".85px cursive";
   c.fillStyle = "#526989";
   for (let s = 1; s < t.stages; s++) {
-    const p = t.center[Math.floor((s / t.stages) * t.center.length)];
+    const p =
+      t.gates?.[s - 1] ??
+      t.center[Math.floor((s / t.stages) * t.center.length)];
     c.fillText(`→ ${s}`, p.x, p.y);
   }
   const line = (ids: number[], color: string, dash: number[]) => {
@@ -76,7 +79,10 @@ export function render(
     c.stroke();
     c.setLineDash([]);
   };
-  line(path, invalid ? "#be4540" : "#173d8a", []);
+  c.globalAlpha = invalid ? 0.85 : 1;
+  line(path, "#173d8a", []);
+  c.globalAlpha = 1;
+  if (red) line(red.path, "#c33131", []);
   for (const [id, label] of t.kind === "rally"
     ? ([
         [t.start, "START"],
@@ -86,7 +92,7 @@ export function render(
     const p = t.nodes[id];
     c.beginPath();
     c.arc(p.x, p.y, 0.34, 0, Math.PI * 2);
-    c.fillStyle = "#be4540";
+    c.fillStyle = "#173d8a";
     c.fill();
     c.font = "bold 1px cursive";
     c.fillStyle = "#243f75";
@@ -95,13 +101,27 @@ export function render(
   const p = t.nodes[path.at(-1) ?? t.start];
   c.beginPath();
   c.arc(p.x, p.y, started ? 0.28 : 0.42, 0, 7);
-  c.fillStyle = started ? "#173d8a" : "#be4540";
+  c.fillStyle = "#173d8a";
   c.fill();
   c.beginPath();
   c.arc(p.x, p.y, 0.55, 0, Math.PI * 2);
-  c.strokeStyle = started ? "#173d8a" : "#be4540";
+  c.strokeStyle = "#173d8a";
   c.lineWidth = 0.08;
   c.stroke();
+  if (red) {
+    const head = t.nodes[red.path.at(-1) ?? red.start];
+    c.beginPath();
+    c.arc(head.x, head.y, 0.32, 0, Math.PI * 2);
+    c.fillStyle = "#c33131";
+    c.fill();
+    c.font = "bold .8px cursive";
+    const rp = t.nodes[red.start];
+    c.fillText("START AI", rp.x + 1, rp.y + 1);
+    if (red.finish !== red.start) {
+      const f = t.nodes[red.finish];
+      c.fillText("META AI", f.x + 1, f.y + 1);
+    }
+  }
   if (crashPoint) {
     c.beginPath();
     c.moveTo(p.x, p.y);

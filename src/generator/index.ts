@@ -1,6 +1,9 @@
 import { validate } from "./validate";
 import { solve } from "../solver";
 import { distance, segmentClear as segmentIn, type Point } from "../geometry";
+export const TRACK_WIDTH_SCALE = 0.9;
+export const defaultWidth = (difficulty: number) =>
+  Math.max(4, 7 - Math.floor(difficulty / 2)) * TRACK_WIDTH_SCALE;
 export type Kind = "oval" | "circuit" | "rally";
 export type Track = {
   seed: string;
@@ -10,6 +13,7 @@ export type Track = {
   outer: Point[];
   hole: Point[];
   center: Point[];
+  gates?: Point[];
   nodes: Point[];
   edges: number[][];
   regions: number[];
@@ -33,18 +37,18 @@ function candidate(
   seed: string,
   kind: Kind = "oval",
   difficulty = 1,
-  width = Math.max(4, 7 - Math.floor(difficulty / 2)),
+  width = defaultWidth(difficulty),
 ): Track {
-  if (!Number.isFinite(width) || width < 4 || width > 8)
-    throw Error("Szerokość musi wynosić 4–8 kratek");
+  if (!Number.isFinite(width) || width < 3.6 || width > 8)
+    throw Error("Szerokość musi wynosić 3,6–8 kratek");
   const r = random(seed),
     size = 52,
     center: Point[] = [],
     outer: Point[] = [],
     hole: Point[] = [];
-  const stages = kind === "rally" ? 8 : 12;
+  const stages = kind === "rally" ? 4 + difficulty * 2 : 6 + difficulty * 2;
   if (kind === "rally") {
-    const amplitude = 1 + difficulty * 0.42,
+    const amplitude = 0.7 + difficulty * 0.55,
       phase = r() * 6.28;
     const ys: number[] = [];
     for (let x = 5; x <= 47; x++)
@@ -58,7 +62,8 @@ function candidate(
       );
     // Vertical cross-sections are widened by the maximum slope: normal width >= requested width.
     const slope = (amplitude * Math.PI * (2 + Math.floor(difficulty / 2))) / 42;
-    const half = (width / 2) * Math.sqrt(1 + slope * slope) + 0.25;
+    const half =
+      (width / 2) * Math.sqrt(1 + slope * slope) + 0.25 * TRACK_WIDTH_SCALE;
     for (let i = 0; i < ys.length; i++) {
       center.push({ x: 5 + i, y: ys[i] });
       outer.push({ x: 5 + i, y: ys[i] - half });
@@ -69,7 +74,7 @@ function candidate(
     const rx = 16 + r() * 2,
       ry = kind === "oval" ? 10 + r() * 2 : 13 + r(),
       phase = r() * 6.28;
-    const half = width / 2 + 0.35;
+    const half = width / 2 + 0.35 * TRACK_WIDTH_SCALE;
     for (let i = 0; i < 128; i++) {
       const t = (i / 128) * Math.PI * 2;
       const bend =
@@ -88,17 +93,33 @@ function candidate(
     }
     if (kind === "circuit" && difficulty >= 3) {
       center.length = 0;
-      const notch = 24 + r() * 3,
-        vertices = [
-          { x: 9, y: 9 },
-          { x: 43, y: 9 },
-          { x: 43, y: 43 },
-          { x: 9, y: 43 },
-          { x: 9, y: 30 },
-          { x: notch, y: 30 },
-          { x: notch, y: 22 },
-          { x: 9, y: 22 },
-        ],
+      const notch = 24 + r() * (difficulty >= 4 ? 5 : 3),
+        vertices =
+          difficulty >= 4
+            ? [
+                { x: 9, y: 5 },
+                { x: 43, y: 5 },
+                { x: 43, y: 47 },
+                { x: 9, y: 47 },
+                { x: 9, y: 39 },
+                { x: notch, y: 39 },
+                { x: notch, y: 31 },
+                { x: 9, y: 31 },
+                { x: 9, y: 23 },
+                { x: notch - 2, y: 23 },
+                { x: notch - 2, y: 15 },
+                { x: 9, y: 15 },
+              ]
+            : [
+                { x: 9, y: 9 },
+                { x: 43, y: 9 },
+                { x: 43, y: 43 },
+                { x: 9, y: 43 },
+                { x: 9, y: 30 },
+                { x: notch, y: 30 },
+                { x: notch, y: 22 },
+                { x: 9, y: 22 },
+              ],
         radius = 3.85;
       for (let j = 0; j < vertices.length; j++) {
         const p = vertices[j],
@@ -137,6 +158,30 @@ function candidate(
   if (kind !== "rally" && r() > 0.5) {
     center.reverse();
   }
+  const axis = center
+    .slice(0, kind === "rally" ? -1 : undefined)
+    .map((a, i) => {
+      const b = center[(i + 1) % center.length],
+        dx = b.x - a.x,
+        dy = b.y - a.y,
+        length = Math.hypot(dx, dy);
+      return { a, b, dx, dy, length, squared: length * length, offset: 0 };
+    });
+  let total = 0;
+  for (const segment of axis) {
+    segment.offset = total;
+    total += segment.length;
+  }
+  const gates = Array.from({ length: stages - 1 }, (_, i) => {
+    const fraction = kind === "rally" ? (i + 1) / stages : (i + 0.5) / stages,
+      d = total * fraction;
+    const segment = axis.find((s) => s.offset + s.length >= d) ?? axis.at(-1)!,
+      ratio = (d - segment.offset) / segment.length;
+    return {
+      x: segment.a.x + segment.dx * ratio,
+      y: segment.a.y + segment.dy * ratio,
+    };
+  });
   const nodes: Point[] = [],
     edges: number[][] = [],
     regions: number[] = [],
@@ -147,18 +192,28 @@ function candidate(
       if (!segmentIn(p, p, outer, hole)) continue;
       map.set(`${x},${y}`, nodes.length);
       nodes.push(p);
-      let nearest = 0,
+      let progress = 0,
         best = Infinity;
-      center.forEach((c, i) => {
-        const d = distance(c, p);
+      for (const segment of axis) {
+        const ratio = Math.max(
+          0,
+          Math.min(
+            1,
+            ((p.x - segment.a.x) * segment.dx +
+              (p.y - segment.a.y) * segment.dy) /
+              segment.squared,
+          ),
+        );
+        const dx = p.x - segment.a.x - ratio * segment.dx,
+          dy = p.y - segment.a.y - ratio * segment.dy,
+          d = dx * dx + dy * dy;
         if (d < best) {
-          nearest = i;
           best = d;
+          progress = (segment.offset + ratio * segment.length) / total;
         }
-      });
-      regions.push(
-        Math.min(stages - 1, Math.floor((nearest / center.length) * stages)),
-      );
+      }
+      const phase = kind === "rally" ? progress : (progress + 0.5 / stages) % 1;
+      regions.push(Math.min(stages - 1, Math.floor(phase * stages)));
     }
   nodes.forEach(() => edges.push([]));
   nodes.forEach((p, i) => {
@@ -188,6 +243,7 @@ function candidate(
     outer,
     hole,
     center,
+    gates,
     nodes,
     edges,
     regions,
@@ -202,12 +258,12 @@ export function generate(
   seed: string,
   kind: Kind = "oval",
   difficulty = 1,
-  width = Math.max(4, 7 - Math.floor(difficulty / 2)),
+  width = defaultWidth(difficulty),
 ): Track {
   if (!Number.isInteger(difficulty) || difficulty < 1 || difficulty > 5)
     throw Error("Trudność 1–5");
-  if (!Number.isFinite(width) || width < 4 || width > 8)
-    throw Error("Szerokość 4–8");
+  if (!Number.isFinite(width) || width < 3.6 || width > 8)
+    throw Error("Szerokość 3,6–8");
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       const t = candidate(
@@ -232,9 +288,19 @@ export function generate(
   solve(t);
   return t;
 }
-export const campaign = (level: number) =>
-  generate(
-    `kampania-v1-${level}`,
-    level <= 10 ? "oval" : level % 3 === 0 ? "rally" : "circuit",
-    level <= 10 ? 1 : level <= 25 ? 2 : level <= 50 ? 3 : level <= 75 ? 4 : 5,
+export function campaign(level: number) {
+  if (!Number.isInteger(level) || level < 1 || level > 100)
+    throw Error("Poziom 1–100");
+  const difficulty =
+    level <= 10 ? 1 : level <= 25 ? 2 : level <= 50 ? 3 : level <= 75 ? 4 : 5;
+  const width = Math.max(
+    3.6,
+    defaultWidth(difficulty) - ((level - 1) / 99) * 0.5,
   );
+  return generate(
+    `kampania-v2-${level}`,
+    level <= 10 ? "oval" : level % 3 === 0 ? "rally" : "circuit",
+    difficulty,
+    width,
+  );
+}

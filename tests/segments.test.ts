@@ -122,11 +122,13 @@ it("bramki są rozliczane po całej prostej, a cofnięcie usuwa cały segment", 
   expect(g.stages).toEqual([0]);
   expect(g.done).toBe(false);
 });
-it("solver wylicza iloczyn, a przekątnych nie skleja", () => {
+it("solver wylicza iloraz, a przekątnych nie skleja", () => {
   const t = fixture(),
     s = solveScore(t);
-  expect(s.clicks).toBe(1);
-  expect(s.path).toEqual([t.start, t.finish]);
+  expect(s.clicks).toBe(8);
+  expect(s.path[0]).toBe(t.start);
+  expect(s.path.at(-1)).toBe(t.finish);
+  expect(s.score).toBe(1);
   const g = new Game(t);
   g.select(t.nodes[t.start]);
   for (const id of s.path.slice(1)) expect(g.select(t.nodes[id])).toBe("move");
@@ -164,8 +166,8 @@ it("nowe rekordy segmentowe są oddzielone od starych długości", () => {
   });
   record("tor", {
     score: 6,
-    lengthSegments: 3,
-    clicks: 2,
+    lengthSegments: 6,
+    clicks: 1,
     stars: 2,
     level: 0,
     penaltyPoints: 0,
@@ -182,7 +184,7 @@ it("nowe rekordy segmentowe są oddzielone od starych długości", () => {
   expect(load<Records>(RECORDS_KEY, {}).tor.penaltyPoints).toBe(0);
 });
 
-it("wynik to iloczyn długości jednostkowej i kliknięć, cofanie przelicza oba", () => {
+it("wynik to iloraz długości jednostkowej i kliknięć, cofanie przelicza oba", () => {
   const t = fixture(),
     g = new Game(t);
   g.select(t.nodes[t.start]);
@@ -194,12 +196,12 @@ it("wynik to iloczyn długości jednostkowej i kliknięć, cofanie przelicza oba
   g.select({ x: 6, y: 6 });
   expect(g.lengthSegments).toBe(6);
   expect(g.clicks).toBe(2);
-  expect(g.score).toBe(12);
+  expect(g.score).toBe(3);
   g.undo();
   expect(g.lengthSegments).toBe(4);
   expect(g.score).toBe(4);
 });
-it("solver iloczynu uwzględnia kompromis długości i kliknięć", () => {
+it("iloraz nie używa starej optymalizacji iloczynu", () => {
   const base = fixture();
   const b = [
     { x: 1, y: 1 },
@@ -268,13 +270,13 @@ it("solver iloczynu uwzględnia kompromis długości i kliknięć", () => {
         finish,
       };
     const s = solveScore(t);
-    expect(s.score).toBe(index === 0 ? 24 : 30);
-    expect(s.clicks).toBe(index === 0 ? 4 : 3);
-    expect(s.lengthSegments).toBe(index === 0 ? 6 : 10);
+    expect(s.score).toBe(1);
+    expect(s.clicks).toBe(index === 0 ? 6 : 8);
+    expect(s.lengthSegments).toBe(index === 0 ? 6 : 8);
   }
 });
 
-it("100 poziomów ma wykonalne optimum iloczynu z długimi prostymi", () => {
+it("100 poziomów ma wykonalny przejazd jednostkowy z ilorazem 1 z długimi prostymi", () => {
   for (let level = 1; level <= 100; level++) {
     const t = campaign(level),
       s = solveScore(t),
