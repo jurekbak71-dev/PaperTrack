@@ -46,7 +46,7 @@ function menu() {
   cancelOpponent();
   duel = undefined;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj niższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Najmniejszy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
   );
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
@@ -56,7 +56,14 @@ function menu() {
 }
 function randomMenu() {
   shell(
-    `<h2>Nowy arkusz</h2><label>Rodzaj toru<select id="kind"><option value="oval">Żużlowy</option><option value="circuit">Samochodowy</option><option value="rally">Rajdowy</option></select></label><label>Trudność<select id="difficulty">${[1, 2, 3, 4, 5].map((n) => `<option>${n}</option>`).join("")}</select></label><label>Kod identycznej planszy (opcjonalnie)<input id="seed" maxlength="120" placeholder="PT1-…"></label><div class="actions"><button id="generate" class="primary">Generuj tor</button><button id="menu">Menu</button></div><p id="error" role="alert"></p>`,
+    `<h2>Nowy arkusz</h2><label>Rodzaj toru<select id="kind"><option value="oval">Żużlowy</option><option value="circuit">Samochodowy</option><option value="rally">Rajdowy</option></select></label><label>Trudność<select id="difficulty">${Array.from(
+      { length: 10 },
+      (_, i) => i + 1,
+    )
+      .map((n) => `<option>${n}</option>`)
+      .join(
+        "",
+      )}</select></label><label>Kod identycznej planszy (opcjonalnie)<input id="seed" maxlength="120" placeholder="PT1-…"></label><div class="actions"><button id="generate" class="primary">Generuj tor</button><button id="menu">Menu</button></div><p id="error" role="alert"></p>`,
   );
   button("menu", menu);
   button("generate", () => {
@@ -65,7 +72,7 @@ function randomMenu() {
     ).value.trim();
     if (input) {
       try {
-        const match = /^PT1-(oval|circuit|rally)-([1-5])-(.+)$/.exec(input);
+        const match = /^PT1-(oval|circuit|rally)-(10|[1-9])-(.+)$/.exec(input);
         if (!match) throw Error();
         start(match[1] as Kind, +match[2], decodeURIComponent(match[3]));
       } catch {
@@ -83,7 +90,7 @@ function randomMenu() {
 function campaignMenu() {
   const records = load<Records>(RECORDS_KEY, {});
   shell(
-    `<h2>Kampania · 100 kartek</h2><p>Każdy poziom ma stały seed. 1–10: łagodne owale; 11–25: więcej łuków; 26–50: nawroty; 51–75: dwa nawroty i więcej bramek; 76–100: najwęższe tory i AI z krótszymi ruchami. Szerokość maleje na każdym kolejnym poziomie.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
+    `<h2>Kampania · 100 kartek</h2><p>Każdy poziom ma stały seed. 10 stopni trudności, po 10 poziomów. Coraz węższe tory, więcej zakrętów i przeszkód oraz silniejsze AI. Trudność 10: szerokość najwyżej 2 kratki i ruchy wyłącznie po przekątnych.</p><div class="actions"><button id="menu">Menu</button></div><div class="levels">${Array.from({ length: 100 }, (_, i) => `<button data-level="${i + 1}">${i + 1}<br><small>${"★".repeat(records[`level-${i + 1}`]?.stars ?? 0)}</small></button>`).join("")}</div>`,
   );
   root
     .querySelectorAll<HTMLButtonElement>("[data-level]")
@@ -100,7 +107,7 @@ function recordsMenu() {
         ? Object.entries(records)
             .map(
               ([key, r]) =>
-                `<p>${escape(key)} · <b>wynik ${r.score} (${r.lengthSegments} × ${r.clicks}); kary: ${r.penaltyPoints} pkt</b> · ${"★".repeat(r.stars)}</p>`,
+                `<p>${escape(key)} · <b>wynik ${r.score} (${r.lengthSegments} ÷ ${r.clicks}); kary: ${r.penaltyPoints} pkt</b> · ${"★".repeat(r.stars)}</p>`,
             )
             .join("")
         : "<p>Jeszcze czysta kartka. Ukończ pierwszy tor!</p>"
@@ -184,7 +191,7 @@ function draw() {
 }
 function screen() {
   shell(
-    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/5 · szerokość ${track.width.toFixed(2)} kr. · ${track.stages - 1} bramek</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>Pion / poziom: dowolna długość. Przekątna: jedna kratka.</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · mniej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza ruch w przeciwnym kierunku. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr. · ${track.stages - 1} bramek</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz też cofać po swoim śladzie o jedną kratkę. Zablokowany gracz przegrywa. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
   button("menu", menu);
   button("undo", () => undo(1));
@@ -265,7 +272,7 @@ function screen() {
         start: "START wybrany. Kliknij koniec swojego pierwszego odcinka.",
         turn: "Teraz ruch przeciwnika. Poczekaj na swoją turę.",
         crossing: `Linie nie mogą się przecinać ani nakładać: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
-        reverse: `Po odbiciu ruch musi być przeciwny do poprzedniego: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
+        reverse: `Powrót po śladzie: tylko jedna kratka; po odbiciu w przeciwnym kierunku: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
         bounce:
           "Odbicie! W następnej turze cofnij się dokładnie w przeciwnym kierunku po ostatnim odcinku.",
         finished: "Pojedynek zakończony. Wybierz Restart albo następny tor.",
@@ -332,9 +339,9 @@ function update() {
   if (game.done) {
     const ratio = game.score,
       stars =
-        ratio <= STAR_THRESHOLDS[0] + 1e-9
+        ratio >= STAR_THRESHOLDS[1] - 1e-9
           ? 3
-          : ratio <= STAR_THRESHOLDS[1] + 1e-9
+          : ratio >= STAR_THRESHOLDS[0] - 1e-9
             ? 2
             : 1;
     const key = level ? `level-${level}` : code;
@@ -427,7 +434,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator)
       .catch(() => {}),
   );
 try {
-  const match = /^PT1-(oval|circuit|rally)-([1-5])-(.+)$/.exec(
+  const match = /^PT1-(oval|circuit|rally)-(10|[1-9])-(.+)$/.exec(
     location.hash.slice(1),
   );
   if (match) start(match[1] as Kind, +match[2], decodeURIComponent(match[3]));

@@ -18,6 +18,7 @@ export function advance(
     stage === t.stages - 1
   )
     return t.stages;
+  if (t.kind !== "rally" && a === 0 && b === t.stages - 1) return stage;
   if (b > a + 1 || a > b + 1) return -1;
   return stage;
 }

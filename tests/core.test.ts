@@ -104,7 +104,7 @@ describe("geometria", () => {
       level: 0,
       penaltyPoints: 0,
     });
-    expect(load<any>(RECORDS_KEY, {}).a.score).toBe(10);
+    expect(load<any>(RECORDS_KEY, {}).a.score).toBe(11);
   });
   it("deterministyczny seed", () =>
     expect(generate("fixed", "circuit")).toEqual(generate("fixed", "circuit")));
@@ -120,13 +120,13 @@ for (const kind of ["oval", "circuit", "rally"] as Kind[])
     for (let seed = 0; seed < 1000; seed++) {
       if (seed % 10 === 0)
         await new Promise((resolve) => setTimeout(resolve, 0));
-      const t = generate(String(seed), kind, 1 + (seed % 5));
+      const t = generate(String(seed), kind, 1 + (seed % 10));
       fallbacks += Number(t.fallback);
       forms.add(JSON.stringify(t.outer));
-      expect(t.width).toBeGreaterThanOrEqual(3.6);
+      expect(t.width).toBeGreaterThanOrEqual(1.8);
       expect(minimumWidth(t)).toBeGreaterThanOrEqual(t.width - 1e-6);
       expect(validate(t)).toBe(true);
-      expect(t.nodes.length).toBeGreaterThan(100);
+      expect(t.nodes.length).toBeGreaterThan(40);
       const s = solve(t);
       expect(s.length).toBeGreaterThan(0);
       const seen = new Set<number>([t.start]),

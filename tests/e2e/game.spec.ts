@@ -51,10 +51,9 @@ test("pojedynek: oba przejazdy, iloraz, zwycięzca, rekord i offline", async ({
   await nodeClick(page, track, track.finish);
   await expect(page.locator("#result")).toContainText("Meta!");
   await expect(page.locator("#score")).toHaveText(String(witness.score));
-  await expect(page.locator("#match-result")).toContainText(
-    "Wygrywa przeciwnik",
-    { timeout: 15000 },
-  );
+  await expect(page.locator("#match-result")).toContainText("Wygrywasz!", {
+    timeout: 15000,
+  });
   const theirs = Number(
     (await page.locator("#opponent-score").innerText()).replace(",", "."),
   );
@@ -91,8 +90,8 @@ test("kampania, kod i responsywny układ", async ({ page }) => {
   await page.getByRole("button", { name: "Kampania", exact: true }).click();
   await expect(page.locator("[data-level]")).toHaveCount(100);
   await page.locator('[data-level="100"]').click();
-  await expect(page.locator(".eyebrow").last()).toContainText("Trudność 5/5");
-  await expect(page.locator(".eyebrow").last()).toContainText("4.00 kr.");
+  await expect(page.locator(".eyebrow").last()).toContainText("Trudność 10/10");
+  await expect(page.locator(".eyebrow").last()).toContainText("1.90 kr.");
   await expect(page.locator("canvas")).toBeVisible();
   expect(
     await page.evaluate(
@@ -233,4 +232,38 @@ test("generator nie blokuje kolejki zdarzeń interfejsu", async ({ page }) => {
   expect(
     await page.evaluate(() => (window as Window & { ticks?: number }).ticks),
   ).toBeGreaterThan(0);
+});
+
+test("trudność 10: kod, przekątna i kara za prostą", async ({ page }) => {
+  const t = generate("diagonal-browser", "rally", 10),
+    start = t.nodes[t.start];
+  await page.goto("./#PT1-rally-10-diagonal-browser");
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator(".click-help")).toContainText(
+    "wyłącznie przekątne",
+  );
+  await pointClick(page, start);
+  await pointClick(page, { x: start.x + 1, y: start.y });
+  await expect(page.locator("#penalties")).toContainText("-1 pkt");
+  await expect(page.locator("#turn")).toContainText("Twoja tura");
+  const next = solve(t).path[1];
+  await nodeClick(page, t, next);
+  await expect(page.locator("#clicks")).toHaveText("1");
+  await expect(page.locator("#score")).toHaveText("1");
+});
+
+test("dobrowolne cofnięcie tylko o jedną kratkę", async ({ page }) => {
+  const t = generate("duel-e2e", "rally", 1),
+    p = t.nodes[t.start];
+  await page.goto("./#PT1-rally-1-duel-e2e");
+  await expect(page.locator("canvas")).toBeVisible();
+  await pointClick(page, p);
+  await pointClick(page, { x: p.x + 4, y: p.y });
+  await expect(page.locator("#turn")).toContainText("Twoja tura");
+  await pointClick(page, { x: p.x + 2, y: p.y });
+  await expect(page.locator("#penalties")).toContainText("-1 pkt");
+  await expect(page.locator("#turn")).toContainText("Twoja tura");
+  await pointClick(page, { x: p.x + 3, y: p.y });
+  await expect(page.locator("#clicks")).toHaveText("2");
+  await expect(page.locator("#score")).toHaveText("2,5");
 });

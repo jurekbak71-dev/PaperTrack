@@ -117,7 +117,7 @@ it("wejście na punkt czerwonej linii wymusza dokładny powrót; wyjątek cofni�
     { x: 6, y: 5 },
   ]);
   expect(m.select({ x: 6, y: 3 })).toBe("bounce");
-  expect(m.reverse.player).toEqual({ x: -1, y: 0, limit: 4 });
+  expect(m.reverse.player).toEqual({ x: -1, y: 0, limit: 1 });
   m.playOpponent();
   expect(m.select({ x: 6, y: 4 })).toBe("reverse");
   expect(m.player.penaltyPoints).toBe(-1);
@@ -125,7 +125,7 @@ it("wejście na punkt czerwonej linii wymusza dokładny powrót; wyjątek cofni�
   expect(m.select({ x: 5, y: 3 })).toBe("move");
   expect(m.reverse.player).toBeNull();
   m.playOpponent();
-  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("crossing");
+  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("move");
   expect(m.preview("player", { x: 5, y: 4 }).result).toBe("move");
 });
 it("nie wolno przeciąć przekątnych ani własnej wcześniejszej linii", () => {
@@ -189,7 +189,7 @@ it("wypadek daje przeciwnikowi zwycięstwo; AI nie wykonuje ruchów po końcu me
   expect(m.playOpponent()).toBe("finished");
   expect(m.undo()).toBe(false);
 });
-it("po ukończeniu obu przejazdów wygrywa niższy iloraz", () => {
+it("po ukończeniu obu przejazdów wygrywa wyższy iloraz", () => {
   const m = match();
   m.select({ x: 2, y: 2 });
   let safety = 0;
@@ -203,7 +203,7 @@ it("po ukończeniu obu przejazdów wygrywa niższy iloraz", () => {
   expect(m.player.done).toBe(true);
   expect(m.opponent.done).toBe(true);
   expect(m.player.score).toBe(1);
-  expect(m.winner).toBe(m.opponent.score === 1 ? "draw" : "player");
+  expect(m.winner).toBe(m.opponent.score === 1 ? "draw" : "opponent");
 });
 it("blokada przeciwnika kończy mecz", () => {
   const m = match();
@@ -222,9 +222,7 @@ it("100 poziomów: oba starty przejezdne, malejąca szerokość, więcej zakręt
       red = opponentTrack(t);
     expect(t.width).toBeLessThanOrEqual(previous + 1e-8);
     previous = t.width;
-    expect(t.width).toBeLessThanOrEqual(
-      Math.max(4, 7 - Math.floor(t.difficulty / 2)) * 0.9 + 1e-8,
-    );
+    expect(t.width).toBeLessThanOrEqual(defaultWidth(t.difficulty) + 1e-8);
     expect(red.start).not.toBe(t.start);
     expect(red.finish).not.toBe(t.finish);
     expect(solve(red).path.length).toBeGreaterThan(1);
@@ -235,25 +233,54 @@ it("100 poziomów: oba starty przejezdne, malejąca szerokość, więcej zakręt
   expect(campaign(80).stages).toBeGreaterThan(campaign(10).stages);
   expect(TRACK_WIDTH_SCALE).toBe(0.9);
   expect(defaultWidth(1)).toBe(6.3);
-  expect(generate("w", "oval", 5).width).toBe(4.5);
+  expect(generate("w", "oval", 10).width).toBeLessThanOrEqual(2);
 }, 120000);
 
-it("kolejne odbicia pozwalają wrócić po ostatnim odcinku także nad wcześniejszą kopią własnej linii", () => {
+it("dobrowolny powrót i odbicie są ograniczone do jednej kratki", () => {
   const m = match();
-  setPath(m.player, [{ x: 2, y: 3 }]);
-  setPath(m.opponent, [
-    { x: 6, y: 1 },
-    { x: 6, y: 4 },
-    { x: 4, y: 4 },
+  setPath(m.player, [
+    { x: 2, y: 3 },
+    { x: 6, y: 3 },
   ]);
-  expect(m.select({ x: 6, y: 3 })).toBe("bounce");
-  const red = m.preview("opponent", { x: 4, y: 3 });
-  expect(red.result).toBe("bounce");
-  m.opponent = red.game;
-  m.reverse.opponent = red.bounce;
+  setPath(m.opponent, [{ x: 10, y: 6 }]);
+  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("reverse");
+  expect(m.preview("player", { x: 5, y: 3 }).result).toBe("move");
+  m.select({ x: 5, y: 3 });
   m.turn = "player";
-  expect(m.select({ x: 4, y: 3 })).toBe("bounce");
-  m.playOpponent();
-  expect(m.turn).toBe("player");
-  expect(m.select({ x: 5, y: 3 })).toBe("move");
+  expect(m.select({ x: 4, y: 3 })).toBe("move");
+});
+it("brak ruchów przegrywa także po kliknięciu startu; cofnięcie zapobiega fałszywej blokadzie", () => {
+  const m = match();
+  m.player.track = {
+    ...m.player.track,
+    edges: m.player.track.edges.map(() => []),
+  };
+  expect(m.select({ x: 2, y: 2 })).toBe("start");
+  expect(m.winner).toBe("opponent");
+  const n = match();
+  setPath(n.player, [
+    { x: 2, y: 2 },
+    { x: 6, y: 2 },
+  ]);
+  n.player.track = {
+    ...n.player.track,
+    edges: n.player.track.edges.map((_, i) =>
+      i === n.player.last ? [id(n.player.track, 5, 2)] : [],
+    ),
+  };
+  expect(n.unitMoves("player")).toEqual([id(n.player.track, 5, 2)]);
+});
+it("silniejsze AI planuje całe proste i osiąga wyższy iloraz na tej samej planszy", () => {
+  const results: number[] = [];
+  for (const difficulty of [1, 9]) {
+    const t = { ...arena(), difficulty },
+      m = new Duel(t, 0, { ...t, start: id(t, 2, 4), finish: id(t, 10, 4) });
+    m.select({ x: 2, y: 2 });
+    m.select({ x: 10, y: 2 });
+    for (let i = 0; i < 100 && !m.winner; i++) m.playOpponent();
+    expect(m.opponent.done).toBe(true);
+    results.push(m.opponent.score);
+  }
+  expect(results[1]).toBeGreaterThan(results[0]);
+  expect(results[1]).toBe(8);
 });

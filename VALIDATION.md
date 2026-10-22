@@ -58,3 +58,16 @@ Domyślne szerokości i marginesy zmniejszono o 10%. Kampania zwęża się monot
 - Nadal bez testów na fizycznym iPhonie/iPadzie. Testy WebKit są testami przeglądarkowymi.
 
 Dodatkowo sprawdzono następujące po sobie odbicia: wolno cofnąć się w obrębie własnego ostatniego odcinka także wtedy, gdy pod nim znajduje się wcześniejsza kopia linii z poprzedniego odbicia. Nowy test regresji oraz ponowne 12/12 testów pojedynku przeszły; ponowiono też scenariusz odbicia w trzech profilach przeglądarkowych (3/3). Obecny zestaw zawiera 32 testy logiki. Samodzielny HTML sprawdzono offline w Chromium i WebKit: oba kolory, pełne przejazdy, zwycięzca według ilorazu, odbicie, kara i utrata tury.
+
+## Aktualizacja po haśle „start”: trudność 1–10 i wyższy iloraz
+
+Zaimplementowano komplet zapisanych zmian: wyższy iloraz wygrywa; wyniki obu stron i zwycięzca; dobrowolny powrót i obowiązkowe odbicie wyłącznie o jedną kratkę; przegrana strony bez legalnych ruchów (z uwzględnieniem cofania); progresja 1–10, szerokości 6,30 → 1,90; wysepki i ściany; silniejsze AI. Od trudności 6 AI planuje całe proste, a prawdopodobieństwo lokalnego odejścia od planu maleje do zera na trudności 10. Osobny test porównuje obie strategie na tej samej planszy.
+
+Na trudności 10 obowiązują wyłącznie jednokratkowe przekątne. Generator używa specjalnych krętych korytarzy dopasowanych do diagonalnego komponentu siatki. Wysepki przy bandzie nie odcinają przejazdu. Przy samych ruchach jednostkowych iloraz wynosi zawsze 1, więc rozstrzygają blokada, wypadek albo kary. Nominalna szerokość odnosi się do korytarza przed przeszkodami.
+
+- ESLint i TypeScript strict: poprawne. Produkcyjny build i eksport HTML/ZIP: poprawne.
+- Pełne E2E: **27/27**, desktop Chromium oraz profile iPhone/iPad w WebKit, 60 s. Nowe scenariusze obejmują kod trudności 10, odrzucenie prostej, poprawną przekątną, dobrowolne cofanie i karę za cofnięcie o dwie kratki. Po końcowym doprecyzowaniu przecięć przy cofaniu ponowiono 9/9 scenariuszy kampanii, odbicia i cofania oraz 14/14 testów pojedynku.
+- Samodzielny `file://` HTML: pełny pojedynek offline, wygrana wyższym wynikiem i otwarcie trudności 10 potwierdzone w Chromium i WebKit; bez błędów JavaScript.
+- Fizycznego iPhone/iPada nie testowano. GitHub Pages pozostaje wyłączone (`has_pages: false`, adres zwraca 404); API Pages zwraca 403 z powodu uprawnień integracji. Włączenie wymaga Settings → Pages → GitHub Actions. Pliki do pobrania działają bez publikacji Pages.
+
+Końcowy pełny `npm test`: **37/37**, 157,27 s. Generator sprawdzony na **1000 seedach każdego typu** (łącznie 3000), z trudnością cyklicznie 1–10; minimum szerokości, brak przecięć, spójność, różnorodność (>950 unikalnych geometrii na kategorię), limit wariantów zapasowych (<20 na kategorię) i legalność całej znalezionej trasy przeszły. Osobno zweryfikowano 100 poziomów, oba starty, przeszkody i 60 torów trudności 10. Wcześniejszy wykryty brak przeszkód przy trudności 10 naprawiono; ponowny pełny zestaw jest zielony.

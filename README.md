@@ -10,21 +10,21 @@ Przyciski + / − powiększają widok, strzałki przesuwają kartkę, „Dopasuj
 
 ## Wynik to ILORAZ
 
-**Wynik = długość trasy w jednostkowych segmentach ÷ liczba kliknięć rysujących odcinki. Mniejszy wynik wygrywa.**
+**Wynik = długość trasy w jednostkowych segmentach ÷ liczba kliknięć rysujących odcinki. Większy wynik wygrywa.**
 
-Jedna kratka prosto lub po przekątnej ma długość 1. START nie zwiększa mnożnika. Nietrafione kliknięcia i przyciski interfejsu nie zwiększają licznika odcinków. Przed pierwszym odcinkiem wynik to 0, nie NaN lub nieskończoność.
+Jedna kratka prosto lub po przekątnej ma długość 1. START nie zwiększa liczby kliknięć. Nietrafione kliknięcia i przyciski interfejsu nie zwiększają licznika odcinków. Przed pierwszym odcinkiem wynik to 0, nie NaN lub nieskończoność.
 
-Przykład: odcinki długości 5 i 3 narysowane dwoma kliknięciami dają **8 ÷ 2 = 4**. Ta sama długość narysowana ośmioma jednokratkowymi ruchami daje **8 ÷ 8 = 1**. Przy tych zasadach wiele krótkich ruchów poprawia iloraz, ale po każdym ruchu swoją turę dostaje przeciwnik, który może zablokować drogę.
+Przykład: odcinki długości 5 i 3 narysowane dwoma kliknięciami dają **8 ÷ 2 = 4**. Ta sama długość narysowana ośmioma jednokratkowymi ruchami daje **8 ÷ 8 = 1**. Przy tych zasadach długie proste poprawiają iloraz, ale po każdym ruchu swoją turę dostaje przeciwnik, który może zablokować drogę.
 
-Gdy jeden gracz ukończy przejazd, drugi kończy swoje tury. Po obu przejazdach porównywane są ilorazy; przy remisie decyduje mniejsza kara (0 pkt przed −1 pkt), a potem jest remis. Zakończony przejazd gracza zapisuje rekord lokalny. Gwiazdki porównują iloraz do matematycznej dolnej granicy 1: do 1,02 — ★★★, do 1,10 — ★★, powyżej — ★. Nie są prognozą wygranej przeciw poruszającemu się AI.
+Gdy jeden gracz ukończy przejazd, drugi kończy swoje tury. Po obu przejazdach porównywane są ilorazy; przy remisie decyduje mniejsza kara (0 pkt przed −1 pkt), a potem jest remis. Zakończony przejazd gracza zapisuje rekord lokalny. Gwiazdki: wynik co najmniej 4 — ★★★, co najmniej 2 — ★★, poniżej 2 — ★ (`STAR_THRESHOLDS` w `src/game/index.ts`). Na trudności 10 wszystkie ruchy są jednostkowe, więc iloraz wynosi 1: o wygranej decyduje przede wszystkim blokada lub wypadek, potem kary. Nie są prognozą wygranej przeciw poruszającemu się AI.
 
-Nowe rekordy mają przestrzeń `records-quotient-duel-v1`, oddzielną od poprzednich wyników iloczynu. Punkty karne są prezentowane osobno; nie odejmuje się ich od ilorazu, co premiowałoby karane ruchy.
+Nowe rekordy mają przestrzeń `records-quotient-higher-v2`, oddzielną od poprzednich wyników iloczynu. Punkty karne są prezentowane osobno i rozstrzygają remis; iloraz zachowuje dokładnie wzór długość ÷ kliknięcia.
 
 ## Linie i odbicie
 
 Nie wolno przecinać czerwonej ani własnej wcześniejszej linii, również między węzłami siatki. Zabronione jest nakładanie odcinków. Kolejne własne odcinki mogą mieć wspólny punkt początku/końca.
 
-Można **zakończyć odcinek w punkcie zajętym przez przeciwnika**, także na środku jego długiej prostej. Jest to odbicie, a nie przecięcie. W swojej następnej turze trzeba wykonać ruch **dokładnie w przeciwnym kierunku**, nie dalej niż długość własnego odcinka, którym dojechano do kontaktu. Jedynym wyjątkiem od zakazu nakładania jest to obowiązkowe cofnięcie po własnym ostatnim odcinku. Potem można odejść w inną stronę. Nie można przejechać przez zajęty punkt i pojechać dalej.
+Można **zakończyć odcinek w punkcie zajętym przez przeciwnika**, także na środku jego długiej prostej. Jest to odbicie, a nie przecięcie. W swojej następnej turze trzeba wykonać ruch **dokładnie w przeciwnym kierunku**, dokładnie o jedną kratkę. Można też dobrowolnie cofać po własnym śladzie, wyłącznie o jedną kratkę na turę (również po przekątnej). Potem można odejść w inną stronę. Nie można przejechać przez zajęty punkt i pojechać dalej.
 
 Zamknięcie pełnego okrążenia może dotknąć własnego STARTU/METY. Odcinek kończący poprawny przejazd kończy obowiązek ruchu tego gracza. Każdy gracz ma osobny start; na rajdzie także osobną metę.
 
@@ -41,19 +41,13 @@ Zamknięcie pełnego okrążenia może dotknąć własnego STARTU/METY. Odcinek 
 
 Kampania ma 100 deterministycznych poziomów. W ekranie gry widać trudność, szerokość oraz liczbę bramek.
 
-| Poziomy | Zmiana trudności                                                                  |
-| ------- | --------------------------------------------------------------------------------- |
-| 1–10    | łagodne owale, mniej bramek, AI dopuszcza dłuższe proste                          |
-| 11–25   | więcej łuków, tory samochodowe i rajdowe                                          |
-| 26–50   | nawrót i bardziej kręte rajdy                                                     |
-| 51–75   | dwa nawroty w torach samochodowych, więcej bramek, krótsze ruchy AI               |
-| 76–100  | najwęższe konfiguracje, silniejsze zakręty rajdowe, AI stawia jednostkowe odcinki |
+Trudność wzrasta od 1 do 10, co 10 poziomów. Szerokość maleje od 6,30 do 1,90 kratki. Przybywa łuków, nawrotów i bramek. Od trudności 3 pojawiają się wysepki i krótkie ściany: docelowo `floor(trudność / 2)` przeszkód. Generator sprawdza całe odcinki i zachowuje sprawdzoną trasę omijającą przeszkody. Kontakt z przeszkodą jest wypadkiem jak kontakt z bandą.
 
-Szerokość nominalna maleje na **każdym** poziomie: od 6,30 do 4,00 kratek. Domyślne tory są co najmniej 10% węższe od poprzedniej wersji; przeskalowano także margines geometryczny. Zawężenie nie omija walidacji szerokości, spójności i pełnego przejazdu. Oba osobne starty są sprawdzane pod kątem przejezdności. Nie oznacza to gwarantowanej wygranej — blokowanie drogi jest częścią pojedynku.
+Na trudności 10 stosowana jest osobna kręta geometria na diagonalnej siatce: wyłącznie jednokratkowe przekątne, bez pionów i poziomów. Dwa kolory siatki mają oddzielne komponenty; graf zawiera komponent startu. Wysepki na tym wąskim torze leżą przy krawędziach i nie odcinają jedynej ciągłej linii przejazdu. Szerokość nominalna opisuje korytarz przed dodaniem przeszkód, nie prześwit obok wysepki. Oba starty mają osobno sprawdzony pełny przejazd, bez gwarancji przejezdności po wzajemnym blokowaniu.
 
-AI planuje po legalnym grafie, uwzględnia bramki, aktualne linie obu graczy i obowiązek odbicia. Nie wykonuje ruchów przez bandę ani przez zajęte odcinki. Wybór długości prostych zależy od trudności i deterministycznego seeda partii.
+AI planuje po legalnym grafie z bramkami i aktualnymi liniami. Na niższych stopniach czasem wybiera lokalny wariant, coraz rzadziej wraz ze wzrostem trudności. Od trudności 6 wyszukuje drogę po całych prostych, minimalizując liczbę kliknięć w planie. Wydłuża proste, aby poprawiać iloraz. Poziom 10 nie popełnia losowych błędów wyboru. AI nie ma dostępu do przyszłych ruchów gracza.
 
-Tryb losowy ma trzy typy torów i pięć trudności. Kod `PT1-typ-trudność-seed` odtwarza planszę według bieżącej wersji zasad. W kampanii używane są seedy `kampania-v2-numer`.
+Tryb losowy ma trzy typy torów i dziesięć trudności. Kod `PT1-typ-trudność-seed` odtwarza planszę według bieżącej wersji zasad. W kampanii używane są seedy `kampania-v3-numer`.
 
 ## Gotowa gra do pobrania
 

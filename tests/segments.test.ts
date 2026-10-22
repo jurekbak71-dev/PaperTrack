@@ -172,7 +172,7 @@ it("nowe rekordy segmentowe są oddzielone od starych długości", () => {
     level: 0,
     penaltyPoints: 0,
   });
-  expect(load<Records>(RECORDS_KEY, {}).tor.score).toBe(5);
+  expect(load<Records>(RECORDS_KEY, {}).tor.score).toBe(6);
   record("tor", {
     score: 5,
     lengthSegments: 5,

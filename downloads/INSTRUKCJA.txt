@@ -4,10 +4,10 @@ PAPER TRACK — POJEDYNEK, ILORAZ = DŁUGOŚĆ ÷ KLIKNIĘCIA
 2. Wybierz Nowa gra albo Kampania.
 3. Kliknij niebieski punkt START. Ty jesteś niebieski, wirtualny przeciwnik czerwony. Ruchy są naprzemienne.
 4. Kliknij koniec odcinka: pionowo lub poziomo na dowolną liczbę kratek; po przekątnej tylko o jedną kratkę.
-5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości ÷ kliknięcia rysujące odcinki. START nie jest liczony. Najmniejszy wynik wygrywa.
+5. Każda kratka albo jednokratkowa przekątna ma długość 1 segmentu. Wynik = suma długości ÷ kliknięcia rysujące odcinki. START nie jest liczony. Największy wynik wygrywa.
 6. Nie ma podpowiedzi. Banda: -5 pkt i przegrana. Nielegalny ruch: -1 pkt i utrata tury. Kary pozostają po restarcie.
-7. Linie nie mogą się przecinać ani nakładać. Możesz dojechać do zajętego punktu przeciwnika, ale potem musisz cofnąć się dokładnie w przeciwnym kierunku po swoim ostatnim odcinku (wyjątek odbicia).
-8. Po obu ukończonych przejazdach wygrywa niższy iloraz; przy remisie decydują kary. Zablokowany gracz przegrywa. Poziomy stopniowo zwężają się, mają więcej nawrotów i bramek oraz trudniejsze AI.
+7. Linie nie mogą się przecinać ani nakładać. Możesz dojechać do zajętego punktu przeciwnika, ale potem musisz cofnąć się dokładnie w przeciwnym kierunku o jedną kratkę po swoim śladzie. Dobrowolne cofanie również tylko o jedną kratkę.
+8. Po obu ukończonych przejazdach wygrywa wyższy iloraz; przy remisie decydują kary. Zablokowany gracz przegrywa. Trudność 1–10: węższe tory, więcej zakrętów, wysepki i ściany oraz silniejsze AI. Stopień 10: szerokość 1,90 kratki, tylko jednokratkowe przekątne.
 
 Nie przeciągaj myszy. Na telefonie dotykaj kolejnych punktów. Przyciskiem + powiększysz planszę.
 Cofnij cofa ostatnią akcję gracza i odpowiedź AI, Cofnij 5 cofa kilka tur, Restart rozpoczyna próbę od nowa.

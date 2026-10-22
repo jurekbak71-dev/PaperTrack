@@ -114,9 +114,15 @@ export class Duel {
         q = own.track.nodes[own.path[i]],
         hit = segmentIntersection(a, b, p, q);
       if (!hit) continue;
-      // The proposal is bounded to the incoming stroke by the forced-direction check.
-      // Ignore its underlying own copies too, so consecutive reflections remain possible.
-      if (reflection) continue;
+      // One-cell retracing may cover old copies, but never cross a different
+      // diagonal in the middle of a cell.
+      if (
+        reflection &&
+        (hit.kind === "overlap" ||
+          samePoint(hit.point, a) ||
+          samePoint(hit.point, b))
+      )
+        continue;
       if (hit.kind === "overlap") return "crossing";
       if (samePoint(hit.point, a)) continue;
       if (
@@ -169,11 +175,27 @@ export class Duel {
       )
         return { result: "reverse", game: copy, bounce: forced };
     }
+    // Retracing is legal only one cell at a time, on an existing own stroke.
+    const len = Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y));
+    const retrace = own.path
+      .slice(1)
+      .some(
+        (id, i) =>
+          segmentIntersection(
+            a,
+            p,
+            own.track.nodes[own.path[i]],
+            own.track.nodes[id],
+          )?.kind === "overlap",
+      );
+    if (retrace && len > 1)
+      return { result: "reverse", game: copy, bounce: forced };
+    const retreat = retrace && len === 1 ? { x: 0, y: 0, limit: 1 } : null;
     const result = copy.select(p);
     if (result !== "move" && result !== "crash")
       return { result, game: copy, bounce: forced };
     const target = result === "crash" ? copy.crashPoint! : p,
-      rule = this.lineRule(side, a, target, copy.done, forced);
+      rule = this.lineRule(side, a, target, copy.done, forced ?? retreat);
     if (rule === "crossing")
       return { result: "crossing", game: own.fork(), bounce: forced };
     const bounce =
@@ -181,7 +203,7 @@ export class Duel {
         ? {
             x: Math.sign(a.x - p.x),
             y: Math.sign(a.y - p.y),
-            limit: Math.max(Math.abs(p.x - a.x), Math.abs(p.y - a.y)),
+            limit: 1,
           }
         : null;
     return {
@@ -196,6 +218,10 @@ export class Duel {
     const candidate = this.preview("player", p);
     if (candidate.result === "start") {
       this.player = candidate.game;
+      if (!this.unitMoves("player").length) {
+        this.winner = "opponent";
+        this.reason = "Brak legalnego ruchu gracza";
+      }
       return "start";
     }
     if (
@@ -236,7 +262,7 @@ export class Duel {
             : this.player.penaltyPoints > this.opponent.penaltyPoints
               ? "player"
               : "opponent"
-          : this.player.score < this.opponent.score
+          : this.player.score > this.opponent.score
             ? "player"
             : "opponent";
       this.reason = "Porównanie ilorazów po ukończeniu obu przejazdów";
@@ -284,8 +310,34 @@ export class Duel {
         }
         return path.reverse();
       }
+      const neighbors: { next: number; stage: number }[] = [];
       for (const next of t.edges[node]) {
         const s = advance(t, node, next, stage);
+        neighbors.push({ next, stage: s });
+        if (t.difficulty < 6 || s < 0) continue;
+        const a = t.nodes[node],
+          b = t.nodes[next],
+          dx = b.x - a.x,
+          dy = b.y - a.y;
+        if (dx && dy) continue;
+        let current = next,
+          currentStage = s;
+        for (let step = 2; step <= t.size; step++) {
+          const j = t.edges[current].find(
+            (id) =>
+              t.nodes[id].x === a.x + dx * step &&
+              t.nodes[id].y === a.y + dy * step,
+          );
+          if (j === undefined) break;
+          currentStage = advance(t, current, j, currentStage);
+          if (currentStage < 0) break;
+          neighbors.push({ next: j, stage: currentStage });
+          current = j;
+        }
+      }
+      // BFS costs one drawing click, so advanced AI plans whole straight strokes.
+      if (t.difficulty >= 6) neighbors.reverse();
+      for (const { next, stage: s } of neighbors) {
         if (s < 0) continue;
         const k = s * n + next;
         if (seen.has(k)) continue;
@@ -314,12 +366,22 @@ export class Duel {
       return "finished";
     }
     const plan = this.reverse.opponent ? [] : this.planOpponent();
+    // Beginners occasionally choose a local alternative; advanced AI follows a
+    // complete checkpoint-aware route and tests longer scoring strokes.
+    const noise = random(`${this.track.seed}:choice:${this.moves}`)();
+    if (
+      !this.reverse.opponent &&
+      noise < (10 - this.track.difficulty) * 0.025 &&
+      options.length > 1
+    )
+      plan.splice(
+        1,
+        plan.length,
+        options[Math.floor(noise * 1000) % options.length],
+      );
     let target = plan[1] ?? options[0];
     const rng = random(`${this.track.seed}:red:${this.moves}`),
-      span =
-        this.track.difficulty >= 5
-          ? 1
-          : 1 + Math.floor(rng() * (this.track.difficulty >= 3 ? 2 : 3));
+      span = 1 + Math.floor(rng() * (1 + this.track.difficulty * 2));
     if (plan.length > 2 && span > 1) {
       const a = this.opponent.track.nodes[plan[0]],
         b = this.opponent.track.nodes[plan[1]],
@@ -340,10 +402,11 @@ export class Duel {
           target = plan[j];
         }
     }
-    const candidate = this.preview(
-      "opponent",
-      this.opponent.track.nodes[target],
-    );
+    let candidate = this.preview("opponent", this.opponent.track.nodes[target]);
+    if (candidate.result !== "move" && candidate.result !== "bounce") {
+      target = options[0];
+      candidate = this.preview("opponent", this.opponent.track.nodes[target]);
+    }
     if (candidate.result !== "move" && candidate.result !== "bounce") {
       this.winner = "player";
       this.reason = "Przeciwnik zablokowany";

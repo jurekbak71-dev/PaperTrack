@@ -51,6 +51,13 @@ export function render(
   poly(t.outer);
   if (t.hole.length) poly(t.hole);
   c.stroke();
+  for (const obstacle of t.obstacles ?? []) {
+    c.beginPath();
+    poly(obstacle);
+    c.fillStyle = "#d5c8ae";
+    c.fill();
+    c.stroke();
+  }
   c.globalAlpha = 0.2;
   c.translate(0.08, 0.06);
   c.stroke();

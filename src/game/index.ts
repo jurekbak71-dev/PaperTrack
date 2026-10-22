@@ -2,7 +2,7 @@ import { segmentLength, scoreOf, SCORE_RULES } from "./scoring";
 import type { Track } from "../generator";
 import { advance, complete } from "../solver";
 import { distance, boundaryContact, inside, type Point } from "../geometry";
-export const STAR_THRESHOLDS = [1.02, 1.1] as const;
+export const STAR_THRESHOLDS = [2, 4] as const;
 export const CRASH_PENALTY = 5;
 export class Game {
   path: number[];
@@ -67,12 +67,14 @@ export class Game {
     if (
       !Number.isInteger(point.x) ||
       !Number.isInteger(point.y) ||
-      (dx && dy && (dx !== 1 || dy !== 1))
+      (dx && dy && (dx !== 1 || dy !== 1)) ||
+      (this.track.difficulty === 10 && (!dx || !dy))
     )
       return "direction";
     const contact = boundaryContact(current, point, [
       this.track.outer,
       this.track.hole,
+      ...(this.track.obstacles ?? []),
     ]);
     if (
       contact ||
