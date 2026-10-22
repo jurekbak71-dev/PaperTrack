@@ -1,11 +1,6 @@
 import { Game } from "./index";
-import { advance, complete, solve } from "../solver";
-import {
-  distance,
-  samePoint,
-  segmentIntersection,
-  type Point,
-} from "../geometry";
+import { advance, complete } from "../solver";
+import { samePoint, segmentIntersection, type Point } from "../geometry";
 import { random, type Track } from "../generator";
 export const ILLEGAL_PENALTY = 1;
 export type Side = "player" | "opponent";
@@ -15,6 +10,7 @@ type Snapshot = {
   player: Game;
   opponent: Game;
   reverse: Record<Side, Reverse | null>;
+  mustBranch: Record<Side, boolean>;
   turn: Side;
   winner: Winner;
   reason: string;
@@ -26,40 +22,11 @@ export type DuelResult =
   | "crossing"
   | "reverse"
   | "bounce"
-  | "finished";
+  | "finished"
+  | "loop";
 export function opponentTrack(t: Track): Track {
-  const candidates = t.nodes
-    .map((_, i) => i)
-    .filter((i) => i !== t.start && t.regions[i] === t.regions[t.start])
-    .sort(
-      (a, b) =>
-        distance(t.nodes[a], t.nodes[t.start]) -
-          distance(t.nodes[b], t.nodes[t.start]) || a - b,
-    );
-  for (const start of candidates.slice(0, 12)) {
-    const finish =
-      t.kind === "rally"
-        ? t.nodes
-            .map((_, i) => i)
-            .filter(
-              (i) => i !== t.finish && t.regions[i] === t.regions[t.finish],
-            )
-            .sort(
-              (a, b) =>
-                distance(t.nodes[a], t.nodes[t.finish]) -
-                  distance(t.nodes[b], t.nodes[t.finish]) || a - b,
-            )[0]
-        : start;
-    if (finish === undefined) continue;
-    const track = { ...t, start, finish };
-    try {
-      solve(track);
-      return track;
-    } catch {
-      /* try another separate lane */
-    }
-  }
-  throw Error("Brak przejezdnego miejsca dla przeciwnika");
+  // Both racers use the same start, finish and checkpoint graph.
+  return { ...t };
 }
 export class Duel {
   player: Game;
@@ -69,6 +36,7 @@ export class Duel {
   reason = "";
   moves = 0;
   reverse: Record<Side, Reverse | null> = { player: null, opponent: null };
+  mustBranch: Record<Side, boolean> = { player: false, opponent: false };
   private history: Snapshot[] = [];
   constructor(
     public track: Track,
@@ -88,6 +56,7 @@ export class Duel {
       reason: this.reason,
       moves: this.moves,
       reverse: { ...this.reverse },
+      mustBranch: { ...this.mustBranch },
     };
   }
   private restore(s: Snapshot) {
@@ -98,6 +67,7 @@ export class Duel {
     this.reason = s.reason;
     this.moves = s.moves;
     this.reverse = { ...s.reverse };
+    this.mustBranch = { ...s.mustBranch };
   }
   private lineRule(
     side: Side,
@@ -158,7 +128,12 @@ export class Duel {
   preview(
     side: Side,
     p: Point,
-  ): { result: DuelResult; game: Game; bounce: Reverse | null } {
+  ): {
+    result: DuelResult;
+    game: Game;
+    bounce: Reverse | null;
+    retreat?: boolean;
+  } {
     const own = this[side],
       copy = own.fork(),
       a = own.track.nodes[own.last],
@@ -188,6 +163,8 @@ export class Duel {
             own.track.nodes[id],
           )?.kind === "overlap",
       );
+    if (retrace && this.mustBranch[side])
+      return { result: "loop", game: copy, bounce: forced };
     if (retrace && len > 1)
       return { result: "reverse", game: copy, bounce: forced };
     const retreat = retrace && len === 1 ? { x: 0, y: 0, limit: 1 } : null;
@@ -210,6 +187,7 @@ export class Duel {
       result: result === "move" && bounce ? "bounce" : result,
       game: copy,
       bounce,
+      retreat: !!retreat,
     };
   }
   select(p: Point): DuelResult {
@@ -220,7 +198,7 @@ export class Duel {
       this.player = candidate.game;
       if (!this.unitMoves("player").length) {
         this.winner = "opponent";
-        this.reason = "Brak legalnego ruchu gracza";
+        this.reason = "Gracz zablokowany — brak ruchu bez zapętlenia";
       }
       return "start";
     }
@@ -232,6 +210,7 @@ export class Duel {
       this.history.push(this.snapshot());
       this.player = candidate.game;
       this.reverse.player = candidate.bounce;
+      this.mustBranch.player = !!candidate.retreat;
       this.moves++;
       if (this.player.crashed) {
         this.winner = "opponent";
@@ -239,7 +218,9 @@ export class Duel {
       } else this.next("player");
     }
     if (
-      ["direction", "illegal", "crossing", "reverse"].includes(candidate.result)
+      ["direction", "illegal", "crossing", "reverse", "loop"].includes(
+        candidate.result,
+      )
     ) {
       this.history.push(this.snapshot());
       this.player.penaltyPoints -= ILLEGAL_PENALTY;
@@ -279,15 +260,42 @@ export class Duel {
       this.winner = this.turn === "player" ? "opponent" : "player";
       this.reason =
         this.turn === "player"
-          ? "Brak legalnego ruchu gracza"
-          : "Przeciwnik zablokowany";
+          ? "Gracz zablokowany — brak ruchu bez zapętlenia"
+          : "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
     }
   }
   unitMoves(side: Side) {
     return this[side].track.edges[this[side].last].filter((id) => {
       const result = this.preview(side, this[side].track.nodes[id]).result;
-      return result === "move" || result === "bounce";
+      if (result !== "move" && result !== "bounce") return false;
+      const candidate = this.preview(side, this[side].track.nodes[id]);
+      if (!candidate.retreat && !candidate.bounce) return true;
+      return this.hasExit(side, candidate, 2);
     });
+  }
+  /** A bounce/retreat is not an escape if it can only repeat an old stroke.
+   * Look through at most the forced retreat and the following fresh departure. */
+  private hasExit(
+    side: Side,
+    candidate: ReturnType<Duel["preview"]>,
+    depth: number,
+  ): boolean {
+    if (candidate.game.done) return true;
+    if (!depth) return false;
+    const copy = Object.assign(Object.create(Duel.prototype) as Duel, this);
+    copy[side] = candidate.game;
+    copy.reverse = { ...this.reverse, [side]: candidate.bounce };
+    copy.mustBranch = { ...this.mustBranch, [side]: !!candidate.retreat };
+    for (const id of copy[side].track.edges[copy[side].last]) {
+      const next = copy.preview(side, copy[side].track.nodes[id]);
+      if (next.result !== "move" && next.result !== "bounce") continue;
+      if (
+        (!next.retreat && !next.bounce) ||
+        copy.hasExit(side, next, depth - 1)
+      )
+        return true;
+    }
+    return false;
   }
   private planOpponent(): number[] {
     const g = this.opponent,
@@ -362,10 +370,12 @@ export class Duel {
     const options = this.unitMoves("opponent");
     if (!options.length) {
       this.winner = "player";
-      this.reason = "Przeciwnik zablokowany";
+      this.reason = "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
       return "finished";
     }
     const plan = this.reverse.opponent ? [] : this.planOpponent();
+    // The planner is optimistic about future branches; the immediate stroke
+    // must obey the same anti-loop rule as the human player.
     // Beginners occasionally choose a local alternative; advanced AI follows a
     // complete checkpoint-aware route and tests longer scoring strokes.
     const noise = random(`${this.track.seed}:choice:${this.moves}`)();
@@ -409,11 +419,12 @@ export class Duel {
     }
     if (candidate.result !== "move" && candidate.result !== "bounce") {
       this.winner = "player";
-      this.reason = "Przeciwnik zablokowany";
+      this.reason = "Przeciwnik zablokowany — brak ruchu bez zapętlenia";
       return "finished";
     }
     this.opponent = candidate.game;
     this.reverse.opponent = candidate.bounce;
+    this.mustBranch.opponent = !!candidate.retreat;
     this.moves++;
     this.next("opponent");
     return candidate.result;
@@ -433,6 +444,7 @@ export class Duel {
     this.opponent = new Game(this.opponent.track);
     this.opponent.started = true;
     this.reverse = { player: null, opponent: null };
+    this.mustBranch = { player: false, opponent: false };
     this.turn = "player";
     this.winner = null;
     this.reason = "";

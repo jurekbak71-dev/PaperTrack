@@ -24,7 +24,7 @@ export function save(key: string, value: unknown) {
     return false;
   }
 }
-export const RECORDS_KEY = "records-quotient-higher-v2";
+export const RECORDS_KEY = "records-quotient-no-loops-v3";
 export function record(code: string, result: Records[string]) {
   const records = load<Records>(RECORDS_KEY, {}),
     old = records[code];

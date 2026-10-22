@@ -71,3 +71,15 @@ Na trudności 10 obowiązują wyłącznie jednokratkowe przekątne. Generator u�
 - Fizycznego iPhone/iPada nie testowano. GitHub Pages pozostaje wyłączone (`has_pages: false`, adres zwraca 404); API Pages zwraca 403 z powodu uprawnień integracji. Włączenie wymaga Settings → Pages → GitHub Actions. Pliki do pobrania działają bez publikacji Pages.
 
 Końcowy pełny `npm test`: **37/37**, 157,27 s. Generator sprawdzony na **1000 seedach każdego typu** (łącznie 3000), z trudnością cyklicznie 1–10; minimum szerokości, brak przecięć, spójność, różnorodność (>950 unikalnych geometrii na kategorię), limit wariantów zapasowych (<20 na kategorię) i legalność całej znalezionej trasy przeszły. Osobno zweryfikowano 100 poziomów, oba starty, przeszkody i 60 torów trudności 10. Wcześniejszy wykryty brak przeszkód przy trudności 10 naprawiono; ponowny pełny zestaw jest zielony.
+
+## Wspólny start, jednorazowy powrót i zakaz zapętlenia
+
+Obie strony korzystają z tej samej kropki startu i tej samej mety. Wyjazd ze wspólnego startu nie jest odbiciem. Usunięto numerowane strzałki i etykiety dodatkowego startu/mety AI; pozostała jedna strzałka obok nawierzchni, zgodna z kierunkiem osi. Bramki kontrolują pełny przejazd wewnętrznie, bez rysowania oznaczeń.
+
+Po dobrowolnym albo wymuszonym cofnięciu o jedną kratkę trzeba odejść nową ścieżką. Kolejne cofanie oraz powrót do przodu po zajętym śladzie są zabronione. Reguła dotyczy gracza i AI. Wykrywanie blokady zagląda przez odbicie/cofnięcie do wymaganego nowego wyjścia; samo cofnięcie prowadzące wyłącznie do dalszej pętli nie zapobiega przegranej. Stan obowiązku zmiany ścieżki jest zapisywany w historii i czyszczony przy restarcie. Zwykłe zamknięcie pełnego okrążenia na mecie nadal jest legalne.
+
+- Pełne `npm test`: **41/41**, 166,20 s, w tym ponownie **3000 seedów** i 100 poziomów. Nowe testy obejmują wspólny start, zakaz oscylacji, zmianę ścieżki, blokadę obu stron, odtwarzanie stanu przez undo/reset i poprawny kierunek strzałki poza torem na 100 poziomach.
+- Pełne E2E: **30/30**, około 66 s, desktop Chromium i profile iPhone/iPad w WebKit. Testy obejmują oba ukończenia, wynik zwycięzcy, offline, wspólny start, faktycznie rysowane etykiety Canvas (brak numerowanych strzałek i START AI), odbicie, powtórne cofnięcie z karą, restart i trudność 10. Błędne założenie testu, że kara za prostą zawsze natychmiast blokuje gracza na trudności 10, skorygowano po sprawdzeniu istniejącego legalnego wyjścia; zachowano sprawdzenie kary i legalnej przekątnej.
+- ESLint, TypeScript strict, build i eksport HTML/ZIP: poprawne.
+- Końcowy samodzielny HTML otwarty przez `file://`, bez internetu: pełny pojedynek, wyższy iloraz jako wygrana, wspólny start i brak starych etykiet potwierdzone osobno w Chromium i WebKit, bez błędów JavaScript.
+- Nadal bez testów na fizycznym iPhonie/iPadzie. Na iOS zalecana jest instalacja PWA przez Safari z adresu HTTPS; pobrany lokalny plik HTML z aplikacji Pliki nie jest odpowiednikiem instalacji PWA. GitHub Pages wymaga włączenia w ustawieniach repozytorium; poprzednio potwierdzone ograniczenie uprawnień integracji pozostaje.

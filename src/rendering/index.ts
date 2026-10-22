@@ -1,4 +1,5 @@
 import type { Track } from "../generator";
+import { inside, boundaryContact } from "../geometry";
 export function render(
   canvas: HTMLCanvasElement,
   t: Track,
@@ -65,12 +66,27 @@ export function render(
   c.globalAlpha = 1;
   c.font = contrast ? "1.2px cursive" : ".85px cursive";
   c.fillStyle = "#526989";
-  for (let s = 1; s < t.stages; s++) {
-    const p =
-      t.gates?.[s - 1] ??
-      t.center[Math.floor((s / t.stages) * t.center.length)];
-    c.fillText(`→ ${s}`, p.x, p.y);
-  }
+  const arrow = startArrow(t);
+  c.beginPath();
+  c.moveTo(arrow.from.x, arrow.from.y);
+  c.lineTo(arrow.to.x, arrow.to.y);
+  const dx = arrow.to.x - arrow.from.x,
+    dy = arrow.to.y - arrow.from.y,
+    len = Math.hypot(dx, dy),
+    ux = dx / len,
+    uy = dy / len;
+  c.moveTo(
+    arrow.to.x - ux * 0.8 + uy * 0.45,
+    arrow.to.y - uy * 0.8 - ux * 0.45,
+  );
+  c.lineTo(arrow.to.x, arrow.to.y);
+  c.lineTo(
+    arrow.to.x - ux * 0.8 - uy * 0.45,
+    arrow.to.y - uy * 0.8 + ux * 0.45,
+  );
+  c.strokeStyle = "#243f75";
+  c.lineWidth = 0.18;
+  c.stroke();
   const line = (ids: number[], color: string, dash: number[]) => {
     if (!ids.length) return;
     c.beginPath();
@@ -118,13 +134,17 @@ export function render(
   if (red) {
     const head = t.nodes[red.path.at(-1) ?? red.start];
     c.beginPath();
-    c.arc(head.x, head.y, 0.32, 0, Math.PI * 2);
+    if (head.x === p.x && head.y === p.y) {
+      c.moveTo(head.x, head.y);
+      c.arc(head.x, head.y, 0.32, -Math.PI / 2, Math.PI / 2);
+      c.closePath();
+    } else c.arc(head.x, head.y, 0.32, 0, Math.PI * 2);
     c.fillStyle = "#c33131";
     c.fill();
     c.font = "bold .8px cursive";
     const rp = t.nodes[red.start];
-    c.fillText("START AI", rp.x + 1, rp.y + 1);
-    if (red.finish !== red.start) {
+    if (red.start !== t.start) c.fillText("START AI", rp.x + 1, rp.y + 1);
+    if (red.finish !== red.start && red.finish !== t.finish) {
       const f = t.nodes[red.finish];
       c.fillText("META AI", f.x + 1, f.y + 1);
     }
@@ -143,4 +163,38 @@ export function render(
     c.lineTo(crashPoint.x - 0.45, crashPoint.y + 0.45);
     c.stroke();
   }
+}
+
+/** One direction arrow beside the start, outside the drivable surface. */
+export function startArrow(t: Track) {
+  const start = t.nodes[t.start],
+    a = t.center[0],
+    b = t.center[1];
+  const length = Math.hypot(b.x - a.x, b.y - a.y),
+    ux = (b.x - a.x) / length,
+    uy = (b.y - a.y) / length;
+  const onTrack = (p: { x: number; y: number }) =>
+    inside(p, t.outer) && !(t.hole.length && inside(p, t.hole));
+  for (let offset = t.width / 2 + 1.5; offset <= t.size; offset += 0.5)
+    for (const sign of [1, -1]) {
+      const mid = {
+        x: start.x - uy * offset * sign,
+        y: start.y + ux * offset * sign,
+      };
+      const from = { x: mid.x - ux * 1.25, y: mid.y - uy * 1.25 },
+        to = { x: mid.x + ux * 1.25, y: mid.y + uy * 1.25 };
+      if (
+        [from, to].every(
+          (p) =>
+            p.x > 1 &&
+            p.x < t.size - 1 &&
+            p.y > 1 &&
+            p.y < t.size - 1 &&
+            !onTrack(p),
+        ) &&
+        !boundaryContact(from, to, [t.outer, t.hole])
+      )
+        return { from, to };
+    }
+  throw Error("Brak miejsca na strzałkę startu");
 }

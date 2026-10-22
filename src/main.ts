@@ -46,7 +46,7 @@ function menu() {
   cancelOpponent();
   duel = undefined;
   shell(
-    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie przez kolejne numery →.</p></section>`,
+    `<section class="hero"><span class="eyebrow">Zeszyt do zadań specjalnych</span><h2>Niebieski kontra czerwony.<br>Wygraj na kartce.</h2><p>Kliknij START. Proste pionowe i poziome mogą mieć dowolną długość, a przekątne — jedną kratkę. Unikaj band: kontakt to wypadek i kara. Od STARTU do METY, po przecięciach siatki. Graj naprzemiennie z czerwonym przeciwnikiem. Unikaj przecięć i wygraj wyższym ilorazem długości do kliknięć.</p><div class="actions"><button class="primary" id="new">Nowa gra</button><button id="random">Losowy tor</button><button id="campaign">Kampania</button><button id="records">Moje rekordy</button><button id="settings">Ustawienia</button></div><p class="note">Wynik = długość w segmentach ÷ kliknięcia. Największy wynik wygrywa. Na torze zamkniętym pokonaj pełne okrążenie w kierunku strzałki.</p></section>`,
   );
   button("new", () => start("oval", 1, String(Date.now())));
   button("random", randomMenu);
@@ -191,7 +191,7 @@ function draw() {
 }
 function screen() {
   shell(
-    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr. · ${track.stages - 1} bramek</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Przejdź kolejne bramki do mety." : "Pełne okrążenie zgodnie z numerami →."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz też cofać po swoim śladzie o jedną kratkę. Zablokowany gracz przegrywa. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
+    `<div class="actions"><button id="menu">← Menu</button><button id="share">Udostępnij kod</button></div><span class="eyebrow">${names[track.kind]} · ${level ? `Poziom ${level} · ` : ""}Trudność ${track.difficulty}/10 · szerokość ${track.width.toFixed(2)} kr.</span><div class="layout"><div><p class="click-help"><b>1.</b> Kliknij niebieski START. <b>2.</b> Kliknij koniec odcinka. <b>${track.difficulty === 10 ? "Trudność 10: wyłącznie przekątne o jedną kratkę." : "Pion / poziom: dowolna długość. Przekątna: jedna kratka."}</b></p><canvas aria-label="Tor: kliknij START, potem końce odcinków pionowych, poziomych lub jednokratkowych przekątnych" id="board"></canvas><div class="actions"><button id="zoomout" aria-label="Oddal">−</button><button id="zoomin" aria-label="Przybliż">+</button><button id="fit">Dopasuj</button><button id="left" aria-label="Przesuń w lewo">←</button><button id="right" aria-label="Przesuń w prawo">→</button><button id="up" aria-label="Przesuń w górę">↑</button><button id="down" aria-label="Przesuń w dół">↓</button></div></div><aside><p class="players"><b style="color:#173d8a">● Ty — niebieski</b> · <b style="color:#c33131">● AI — czerwony</b></p><p id="turn" role="status">Twoja tura</p><small>Twój iloraz · więcej znaczy lepiej</small><p class="metric" id="score">0</p><p><span id="length-segments">0</span> segmentów ÷ <span id="clicks">0</span> kliknięć</p><p style="color:#c33131">Przeciwnik: <b id="opponent-score">0</b> = <span id="opponent-length">0</span> ÷ <span id="opponent-clicks">0</span></p><p id="penalties">Kary na tym torze: ${game!.penaltyPoints} pkt</p><p class="note">${track.kind === "rally" ? "Dotrzyj do mety, zaczynając w kierunku strzałki." : "Pokonaj pełne okrążenie w kierunku strzałki."} Prosto w pionie lub poziomie możesz pokonać wiele kratek jednym kliknięciem. Przekątna ma najwyżej jedną kratkę. Długość to liczba jednostkowych segmentów siatki (przekątna: ${SCORE_RULES.diagonalLength === 1 ? "1" : "√2"}). Wynik = długość ÷ liczba kliknięć rysujących odcinki. Ruchy na zmianę. Linie nie mogą się przecinać. Dotknięcie zajętego punktu wymusza powrót o jedną kratkę. Możesz cofnąć się raz o jedną kratkę, potem musisz odejść nową ścieżką. Pętle są zabronione. Brak ruchu bez zapętlenia oznacza przegraną. Obaj startujecie z tej samej kropki. Trudność 10: tylko jednokratkowe przekątne. Kontakt z bandą: −${CRASH_PENALTY} pkt i przegrana. Nielegalny ruch: −${ILLEGAL_PENALTY} pkt i utrata tury. Na telefonie dotykaj punktów. Do małych kratek użyj przycisku +.</p><div class="actions"><button id="undo">Cofnij</button><button id="undo5">Cofnij 5</button><button id="clear">Wyczyść</button><button id="restart">Restart</button></div><p id="status" class="status" role="status">Kliknij niebieski punkt START.</p><div id="result"></div><div id="match-result" role="status"></div><div class="actions"><button id="next">${level ? "Następny poziom" : "Następny tor"}</button></div><small style="word-break:break-all">${escape(code)}</small></aside></div>`,
   );
   button("menu", menu);
   button("undo", () => undo(1));
@@ -267,11 +267,13 @@ function screen() {
         "crashed",
         "crossing",
         "reverse",
+        "loop",
       ].includes(result);
       const messages = {
         start: "START wybrany. Kliknij koniec swojego pierwszego odcinka.",
         turn: "Teraz ruch przeciwnika. Poczekaj na swoją turę.",
         crossing: `Linie nie mogą się przecinać ani nakładać: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
+        loop: `Po cofnięciu musisz zmienić ścieżkę — kolejne cofanie lub pętla: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
         reverse: `Powrót po śladzie: tylko jedna kratka; po odbiciu w przeciwnym kierunku: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
         bounce:
           "Odbicie! W następnej turze cofnij się dokładnie w przeciwnym kierunku po ostatnim odcinku.",
@@ -281,7 +283,7 @@ function screen() {
         "need-start": "Najpierw kliknij niebieski punkt START.",
         direction:
           "Długa prosta może być tylko pionowa lub pozioma. Przekątna ma najwyżej jedną kratkę. −1 pkt i utrata tury.",
-        illegal: `Ten ruch omija wymaganą bramkę: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
+        illegal: `Ten ruch jest niezgodny z przebiegiem toru: −${ILLEGAL_PENALTY} pkt i utrata tury.`,
         done: "Tor ukończony!",
         crash: `Wypadek! Dotknięcie bandy: −${CRASH_PENALTY} pkt. Rozpocznij ponowną próbę.`,
         crashed: "Próba zakończyła się wypadkiem. Kliknij Restart.",
@@ -382,6 +384,10 @@ function scheduleOpponent() {
       if (duel.reverse.player)
         status(
           "Odbicie: następny ruch musi iść dokładnie przeciwnie do poprzedniego.",
+        );
+      else if (duel.mustBranch.player)
+        status(
+          "Po cofnięciu wybierz nową ścieżkę. Ponowne cofanie jest zabronione.",
         );
       update();
     },

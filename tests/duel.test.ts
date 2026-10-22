@@ -125,7 +125,7 @@ it("wejście na punkt czerwonej linii wymusza dokładny powrót; wyjątek cofni�
   expect(m.select({ x: 5, y: 3 })).toBe("move");
   expect(m.reverse.player).toBeNull();
   m.playOpponent();
-  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("move");
+  expect(m.preview("player", { x: 4, y: 3 }).result).toBe("loop");
   expect(m.preview("player", { x: 5, y: 4 }).result).toBe("move");
 });
 it("nie wolno przeciąć przekątnych ani własnej wcześniejszej linii", () => {
@@ -223,8 +223,8 @@ it("100 poziomów: oba starty przejezdne, malejąca szerokość, więcej zakręt
     expect(t.width).toBeLessThanOrEqual(previous + 1e-8);
     previous = t.width;
     expect(t.width).toBeLessThanOrEqual(defaultWidth(t.difficulty) + 1e-8);
-    expect(red.start).not.toBe(t.start);
-    expect(red.finish).not.toBe(t.finish);
+    expect(red.start).toBe(t.start);
+    expect(red.finish).toBe(t.finish);
     expect(solve(red).path.length).toBeGreaterThan(1);
   }
   expect(campaign(80).center.length).toBeGreaterThan(
@@ -247,9 +247,13 @@ it("dobrowolny powrót i odbicie są ograniczone do jednej kratki", () => {
   expect(m.preview("player", { x: 5, y: 3 }).result).toBe("move");
   m.select({ x: 5, y: 3 });
   m.turn = "player";
-  expect(m.select({ x: 4, y: 3 })).toBe("move");
+  expect(m.select({ x: 4, y: 3 })).toBe("loop");
+  expect(m.mustBranch.player).toBe(true);
+  m.turn = "player";
+  expect(m.select({ x: 5, y: 4 })).toBe("move");
+  expect(m.mustBranch.player).toBe(false);
 });
-it("brak ruchów przegrywa także po kliknięciu startu; cofnięcie zapobiega fałszywej blokadzie", () => {
+it("brak ruchów przegrywa; cofnięcie bez nowego wyjścia jest zapętleniem", () => {
   const m = match();
   m.player.track = {
     ...m.player.track,
@@ -268,6 +272,8 @@ it("brak ruchów przegrywa także po kliknięciu startu; cofnięcie zapobiega fa
       i === n.player.last ? [id(n.player.track, 5, 2)] : [],
     ),
   };
+  expect(n.unitMoves("player")).toEqual([]);
+  n.player.track.edges[id(n.player.track, 5, 2)] = [id(n.player.track, 5, 3)];
   expect(n.unitMoves("player")).toEqual([id(n.player.track, 5, 2)]);
 });
 it("silniejsze AI planuje całe proste i osiąga wyższy iloraz na tej samej planszy", () => {
@@ -283,4 +289,59 @@ it("silniejsze AI planuje całe proste i osiąga wyższy iloraz na tej samej pla
   }
   expect(results[1]).toBeGreaterThan(results[0]);
   expect(results[1]).toBe(8);
+});
+
+it("wspólny start nie jest odbiciem i oba kolory mogą wyjechać różnymi liniami", () => {
+  const t = arena(),
+    m = new Duel(t);
+  expect(m.player.last).toBe(m.opponent.last);
+  m.select(t.nodes[t.start]);
+  expect(m.reverse.player).toBeNull();
+  expect(m.select({ x: 5, y: 2 })).toBe("move");
+  expect(m.reverse.player).toBeNull();
+  expect(m.playOpponent()).toMatch(/move|bounce/);
+  expect(m.opponent.clicks).toBe(1);
+  expect(m.opponent.path[0]).toBe(t.start);
+  expect(m.player.path[0]).toBe(t.start);
+  expect(m.preview("player", t.nodes[t.start]).result).not.toBe("move");
+});
+it("cofanie nie może tworzyć oscylacji, stan jest przywracany przy undo i resecie", () => {
+  const m = match();
+  m.select({ x: 2, y: 2 });
+  m.select({ x: 6, y: 2 });
+  m.playOpponent();
+  expect(m.select({ x: 5, y: 2 })).toBe("move");
+  expect(m.mustBranch.player).toBe(true);
+  expect(m.preview("player", { x: 6, y: 2 }).result).toBe("loop");
+  expect(m.preview("player", { x: 4, y: 2 }).result).toBe("loop");
+  expect(m.undo()).toBe(true);
+  expect(m.mustBranch.player).toBe(false);
+  m.clear();
+  expect(m.mustBranch).toEqual({ player: false, opponent: false });
+});
+it("strona z samymi ruchami prowadzącymi do pętli przegrywa, także AI", () => {
+  for (const side of ["player", "opponent"] as const) {
+    const m = match(),
+      g = m[side],
+      other = side === "player" ? "opponent" : "player";
+    setPath(g, [
+      { x: 2, y: 2 },
+      { x: 6, y: 2 },
+    ]);
+    g.track = {
+      ...g.track,
+      edges: g.track.edges.map((_, i) =>
+        i === g.last ? [id(g.track, 5, 2)] : [],
+      ),
+    };
+    if (side === "opponent") {
+      m.turn = side;
+      m.playOpponent();
+    } else {
+      m.turn = "opponent";
+      m.playOpponent();
+    }
+    expect(m.winner).toBe(other);
+    expect(m.reason).toContain("zapętlenia");
+  }
 });
